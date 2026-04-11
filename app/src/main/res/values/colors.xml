@@ -1,0 +1,6 @@
+<resources>
+    <color name="launcher_bg_top">#FFF8F4</color>
+    <color name="launcher_bg_mid">#F3D8CC</color>
+    <color name="launcher_bg_bottom">#DCA48F</color>
+    <color name="launcher_bg_highlight">#66FFFFFF</color>
+</resources>

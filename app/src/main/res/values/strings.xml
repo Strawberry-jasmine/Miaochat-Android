@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Miaochat</string>
+    <string name="chat_empty_state_body">%1$s keeps thread history locally. Use History to revisit earlier sessions, branch from any message, or keep multiple work streams alive without losing context.</string>
+</resources>
