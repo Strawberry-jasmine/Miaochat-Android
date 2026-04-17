@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,11 +52,9 @@ import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -166,191 +165,247 @@ fun ChatScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .imePadding(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    BoxWithConstraints(
+        modifier = modifier.fillMaxSize(),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                RelaySectionEyebrow(text = appName)
-                Text(
-                    text = localizedThreadTitle(currentThread?.title.orEmpty()),
-                    style = MaterialTheme.typography.displaySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = threadSubtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+        val railLayoutMode = historyRailLayoutMode(maxWidth)
+        val overlayRailWidth = minOf(maxWidth * 0.88f, 360.dp)
+        var historyRailExpanded by rememberSaveable(railLayoutMode) { mutableStateOf(false) }
+        val overlayDismissInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box {
-                    Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
-                        tonalElevation = 0.dp,
-                        border = BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
-                        ),
+        Box(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = railLayoutMode == HistoryRailLayoutMode.PERSISTENT && historyRailExpanded,
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
+                ) {
+                    ThreadHistoryRail(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onCopyTranscript = { thread ->
+                            onCopyTranscript(buildTranscript(thread.messages, context))
+                        },
+                        onCollapse = { historyRailExpanded = false },
+                        closeAfterThreadSelection = false,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(320.dp)
+                            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .imePadding(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = { actionMenuExpanded = true }) {
-                            Icon(
-                                Icons.Outlined.MoreHoriz,
-                                contentDescription = stringResource(R.string.chat_menu_desc),
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            RelaySectionEyebrow(text = appName)
+                            Text(
+                                text = localizedThreadTitle(currentThread?.title.orEmpty()),
+                                style = MaterialTheme.typography.displaySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = threadSubtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (!historyRailExpanded) {
+                                HeaderChromeIconButton(
+                                    icon = Icons.Outlined.Menu,
+                                    contentDescription = stringResource(R.string.history_expand_desc),
+                                    onClick = { historyRailExpanded = true },
+                                )
+                            }
+                            Box {
+                                HeaderChromeIconButton(
+                                    icon = Icons.Outlined.MoreHoriz,
+                                    contentDescription = stringResource(R.string.chat_menu_desc),
+                                    onClick = { actionMenuExpanded = true },
+                                )
+                                DropdownMenu(
+                                    expanded = actionMenuExpanded,
+                                    onDismissRequest = { actionMenuExpanded = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_new_chat)) },
+                                        onClick = {
+                                            actionMenuExpanded = false
+                                            viewModel.createThread()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_rename)) },
+                                        onClick = {
+                                            actionMenuExpanded = false
+                                            renameDraft = currentThread?.title.orEmpty()
+                                            renameDialogVisible = true
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_duplicate)) },
+                                        onClick = {
+                                            actionMenuExpanded = false
+                                            viewModel.duplicateCurrentThread()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_copy_transcript)) },
+                                        onClick = {
+                                            actionMenuExpanded = false
+                                            onCopyTranscript(buildTranscript(currentThread?.messages.orEmpty(), context))
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.action_clear_thread)) },
+                                        onClick = {
+                                            actionMenuExpanded = false
+                                            viewModel.clearCurrentThread()
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
-                    DropdownMenu(
-                        expanded = actionMenuExpanded,
-                        onDismissRequest = { actionMenuExpanded = false },
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                        state = messageListState,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(top = 6.dp, bottom = 10.dp),
                     ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_new_chat)) },
-                            onClick = {
-                                actionMenuExpanded = false
-                                viewModel.createThread()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_rename)) },
-                            onClick = {
-                                actionMenuExpanded = false
-                                renameDraft = currentThread?.title.orEmpty()
-                                renameDialogVisible = true
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_duplicate)) },
-                            onClick = {
-                                actionMenuExpanded = false
-                                viewModel.duplicateCurrentThread()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_copy_transcript)) },
-                            onClick = {
-                                actionMenuExpanded = false
-                                onCopyTranscript(buildTranscript(currentThread?.messages.orEmpty(), context))
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.action_clear_thread)) },
-                            onClick = {
-                                actionMenuExpanded = false
-                                viewModel.clearCurrentThread()
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            state = messageListState,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(top = 6.dp, bottom = 10.dp),
-        ) {
-            item(key = "controls") {
-                ChatControlPanel(
-                    uiState = uiState,
-                    onApplyPreset = viewModel::applyTuningPreset,
-                    onReasoningSelected = { reasoning ->
-                        viewModel.updateControls { it.copy(reasoningEffort = reasoning) }
-                    },
-                    onVerbositySelected = { verbosity ->
-                        viewModel.updateControls { it.copy(verbosity = verbosity) }
-                    },
-                    onWebSearchChanged = { enabled ->
-                        viewModel.updateControls { it.copy(webSearchEnabled = enabled) }
-                    },
-                    onRegenerate = viewModel::regenerateLastAssistant,
-                )
-            }
-
-            if (currentThread == null || currentThread.messages.isEmpty()) {
-                item(key = "empty-state") {
-                    RelayEmptyStateCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = Icons.Outlined.ChatBubbleOutline,
-                        title = stringResource(R.string.chat_empty_state_title),
-                        body = stringResource(R.string.chat_empty_state_body, appName),
-                    )
-                }
-            } else {
-                items(currentThread.messages, key = { it.id }) { message ->
-                    MessageBubble(
-                        message = message,
-                        isLatestAssistant = message.id == currentThread.messages.lastOrNull()?.id &&
-                            message.role == ChatRole.ASSISTANT,
-                        onCopy = { clipboard.setText(AnnotatedString(message.text)) },
-                        onCopyCode = { clipboard.setText(AnnotatedString(it)) },
-                        onUseAsDraft = {
-                            viewModel.useMessageAsDraft(
-                                message,
-                                if (message.role == ChatRole.USER) {
-                                    draftFromUserNote
-                                } else {
-                                    draftFromAssistantNote
+                        item(key = "controls") {
+                            ChatControlPanel(
+                                uiState = uiState,
+                                onApplyPreset = viewModel::applyTuningPreset,
+                                onReasoningSelected = { reasoning ->
+                                    viewModel.updateControls { it.copy(reasoningEffort = reasoning) }
                                 },
+                                onVerbositySelected = { verbosity ->
+                                    viewModel.updateControls { it.copy(verbosity = verbosity) }
+                                },
+                                onWebSearchChanged = { enabled ->
+                                    viewModel.updateControls { it.copy(webSearchEnabled = enabled) }
+                                },
+                                onRegenerate = viewModel::regenerateLastAssistant,
                             )
+                        }
+
+                        if (currentThread == null || currentThread.messages.isEmpty()) {
+                            item(key = "empty-state") {
+                                RelayEmptyStateCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    icon = Icons.Outlined.ChatBubbleOutline,
+                                    title = stringResource(R.string.chat_empty_state_title),
+                                    body = stringResource(R.string.chat_empty_state_body, appName),
+                                )
+                            }
+                        } else {
+                            items(currentThread.messages, key = { it.id }) { message ->
+                                MessageBubble(
+                                    message = message,
+                                    isLatestAssistant = message.id == currentThread.messages.lastOrNull()?.id &&
+                                        message.role == ChatRole.ASSISTANT,
+                                    onCopy = { clipboard.setText(AnnotatedString(message.text)) },
+                                    onCopyCode = { clipboard.setText(AnnotatedString(it)) },
+                                    onUseAsDraft = {
+                                        viewModel.useMessageAsDraft(
+                                            message,
+                                            if (message.role == ChatRole.USER) {
+                                                draftFromUserNote
+                                            } else {
+                                                draftFromAssistantNote
+                                            },
+                                        )
+                                    },
+                                    onRegenerate = viewModel::regenerateLastAssistant,
+                                    onBranch = { viewModel.branchThread(message.id) },
+                                )
+                            }
+                            uiState.visibleInFlightReply?.let { reply ->
+                                item(key = "in-flight-${reply.threadId}") {
+                                    PendingAssistantBubble(reply = reply)
+                                }
+                            }
+                        }
+
+                        item(key = "tail-space") {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
+
+                    Composer(
+                        uiState = uiState,
+                        onDraftChange = viewModel::updateDraft,
+                        onSend = viewModel::send,
+                        onClearAttachment = viewModel::clearAttachment,
+                        onClearComposerContext = viewModel::clearComposerContext,
+                        onPickImage = {
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         },
-                        onRegenerate = viewModel::regenerateLastAssistant,
-                        onBranch = { viewModel.branchThread(message.id) },
+                        pendingTextSet = pendingTextSet,
                     )
                 }
-                uiState.visibleInFlightReply?.let { reply ->
-                    item(key = "in-flight-${reply.threadId}") {
-                        PendingAssistantBubble(reply = reply)
-                    }
+            }
+
+            AnimatedVisibility(
+                visible = railLayoutMode == HistoryRailLayoutMode.OVERLAY && historyRailExpanded,
+                enter = androidx.compose.animation.slideInHorizontally(initialOffsetX = { -it / 4 }) + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.slideOutHorizontally(targetOffsetX = { -it / 5 }) + androidx.compose.animation.fadeOut(),
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.22f))
+                            .clickable(
+                                interactionSource = overlayDismissInteraction,
+                                indication = null,
+                            ) {
+                                historyRailExpanded = false
+                            }
+                    )
+                    ThreadHistoryRail(
+                        uiState = uiState,
+                        viewModel = viewModel,
+                        onCopyTranscript = { thread ->
+                            onCopyTranscript(buildTranscript(thread.messages, context))
+                        },
+                        onCollapse = { historyRailExpanded = false },
+                        closeAfterThreadSelection = true,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .fillMaxHeight()
+                            .width(overlayRailWidth)
+                            .padding(start = 12.dp, top = 8.dp, bottom = 8.dp),
+                    )
                 }
             }
-
-            item(key = "tail-space") {
-                Spacer(modifier = Modifier.height(12.dp))
-            }
         }
-
-        ThreadHistoryRail(
-            uiState = uiState,
-            viewModel = viewModel,
-            onCopyTranscript = { thread ->
-                onCopyTranscript(buildTranscript(thread.messages, context))
-            },
-        )
-
-        Composer(
-            uiState = uiState,
-            onDraftChange = viewModel::updateDraft,
-            onSend = viewModel::send,
-            onClearAttachment = viewModel::clearAttachment,
-            onClearComposerContext = viewModel::clearComposerContext,
-            onPickImage = {
-                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            },
-            pendingTextSet = pendingTextSet,
-        )
     }
 
     LaunchedEffect(
@@ -420,6 +475,19 @@ private fun ChatControlPanel(
         0 -> stringResource(R.string.chat_controls_thread_fresh)
         else -> pluralStringResource(R.plurals.thread_message_count, count, count)
     }
+    val providerLabel = uiState.settings.provider.displayName
+    val webSearchLabel = if (!uiState.settings.provider.supportsWebSearch) {
+        stringResource(R.string.chat_controls_web_unavailable)
+    } else if (uiState.controls.webSearchEnabled) {
+        stringResource(R.string.chat_controls_web_on)
+    } else {
+        stringResource(R.string.chat_controls_web_off)
+    }
+    val tuneLabel = if (advancedControlsVisible) {
+        stringResource(R.string.chat_controls_less)
+    } else {
+        stringResource(R.string.chat_controls_tune)
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -443,51 +511,17 @@ private fun ChatControlPanel(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ControlStatusPill(
-                    text = "${uiState.settings.provider.displayName} • ${uiState.settings.provider.model}",
+                    text = providerLabel,
                     icon = Icons.Outlined.AutoAwesome,
                     highlight = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.widthIn(max = 280.dp),
+                    modifier = Modifier.widthIn(max = 180.dp),
                 )
-                FilterChip(
-                    selected = uiState.controls.webSearchEnabled,
-                    onClick = { onWebSearchChanged(!uiState.controls.webSearchEnabled) },
+                ControlTogglePill(
+                    text = webSearchLabel,
+                    icon = Icons.Outlined.Public,
+                    selected = uiState.controls.webSearchEnabled && uiState.settings.provider.supportsWebSearch,
                     enabled = uiState.settings.provider.supportsWebSearch,
-                    label = {
-                        Text(
-                            if (!uiState.settings.provider.supportsWebSearch) {
-                                stringResource(R.string.chat_controls_web_unavailable)
-                            } else if (uiState.controls.webSearchEnabled) {
-                                stringResource(R.string.chat_controls_web_on)
-                            } else {
-                                stringResource(R.string.chat_controls_web_off)
-                            }
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Public,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
-                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        selectedLeadingIconColor = MaterialTheme.colorScheme.secondary,
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f),
-                        labelColor = MaterialTheme.colorScheme.onSurface,
-                        iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
-                    ),
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = if (uiState.controls.webSearchEnabled) {
-                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f)
-                        } else {
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
-                        },
-                    ),
+                    onClick = { onWebSearchChanged(!uiState.controls.webSearchEnabled) },
                 )
                 ControlStatusPill(
                     text = activePreset?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.chat_controls_custom),
@@ -498,14 +532,10 @@ private fun ChatControlPanel(
                         MaterialTheme.colorScheme.primary
                     },
                 )
-                AssistChip(
+                ControlActionPill(
+                    text = tuneLabel,
                     onClick = { advancedControlsVisible = !advancedControlsVisible },
-                    label = { Text(if (advancedControlsVisible) stringResource(R.string.chat_controls_less) else stringResource(R.string.chat_controls_tune)) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f),
-                        labelColor = MaterialTheme.colorScheme.onSurface,
-                        leadingIconContentColor = MaterialTheme.colorScheme.primary,
-                    ),
+                    highlight = MaterialTheme.colorScheme.primary,
                 )
             }
 
@@ -515,6 +545,7 @@ private fun ChatControlPanel(
             ) {
                 RequestTuningPreset.entries.forEach { preset ->
                     FilterChip(
+                        modifier = Modifier.heightIn(min = CHAT_CONTROL_PILL_MIN_HEIGHT),
                         selected = preset.matches(uiState.controls, uiState.settings.provider),
                         onClick = { onApplyPreset(preset) },
                         label = { Text(stringResource(preset.titleRes())) },
@@ -562,20 +593,18 @@ private fun ChatControlPanel(
                         }
 
                         if (currentThread?.messages?.lastOrNull()?.role == ChatRole.ASSISTANT && !uiState.isSending) {
-                            AssistChip(
+                            ControlActionPill(
+                                text = stringResource(R.string.action_regenerate),
                                 onClick = onRegenerate,
-                                label = { Text(stringResource(R.string.action_regenerate)) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.84f),
-                                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                    leadingIconContentColor = MaterialTheme.colorScheme.tertiary,
-                                ),
+                                highlight = MaterialTheme.colorScheme.tertiary,
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.84f),
+                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                             )
                         }
                     }
 
                     Text(
-                        text = "$threadSummary • ${uiState.resolvedEndpoint}",
+                        text = "$threadSummary • ${uiState.settings.provider.model} • ${uiState.resolvedEndpoint}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -635,7 +664,7 @@ private fun Composer(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 AnimatedVisibility(visible = uiState.isSending || uiState.composerNote != null) {
@@ -740,9 +769,9 @@ private fun Composer(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.Bottom,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
                             shape = RoundedCornerShape(18.dp),
@@ -761,7 +790,7 @@ private fun Composer(
                             onValueChange = onDraftChange,
                             modifier = Modifier
                                 .weight(1f)
-                                .heightIn(min = 68.dp, max = 160.dp),
+                                .heightIn(min = 56.dp, max = 148.dp),
                             placeholder = {
                                 Text(
                                     if (uiState.isSending) {
@@ -771,8 +800,8 @@ private fun Composer(
                                     }
                                 )
                             },
-                            minLines = 2,
-                            maxLines = 6,
+                            minLines = 1,
+                            maxLines = 5,
                             shape = RoundedCornerShape(22.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
@@ -798,11 +827,11 @@ private fun Composer(
                             enabled = uiState.canSend || uiState.isSending,
                             shape = RoundedCornerShape(22.dp),
                             modifier = Modifier
-                                .padding(bottom = 4.dp)
+                                .heightIn(min = 48.dp)
                                 .animateContentSize(animationSpec = androidx.compose.animation.core.tween(220, easing = FastOutSlowInEasing)),
                             contentPadding = PaddingValues(
                                 horizontal = if (uiState.isSending) 16.dp else 14.dp,
-                                vertical = 0.dp,
+                                vertical = 10.dp,
                             ),
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
@@ -1189,11 +1218,7 @@ private fun AnimatedStatusBeam(reply: InFlightAssistantReply) {
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
-                durationMillis = when (reply.stage) {
-                    InFlightAssistantStage.SEARCHING -> 1_800
-                    InFlightAssistantStage.THINKING -> 1_450
-                    InFlightAssistantStage.STREAMING -> 1_100
-                }
+                durationMillis = pendingStatusBeamDurationMillis(reply.stage)
                 0f at 0
                 1f at durationMillis
             },
@@ -1232,10 +1257,10 @@ private fun AnimatedStatusBeam(reply: InFlightAssistantReply) {
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            Color.Transparent,
+                            accent.copy(alpha = 0.12f),
                             accent.copy(alpha = 0.22f),
                             accent.copy(alpha = 0.76f),
-                            accent.copy(alpha = 0.22f),
+                            accent.copy(alpha = 0.30f),
                             Color.Transparent,
                         )
                     )
@@ -1243,6 +1268,8 @@ private fun AnimatedStatusBeam(reply: InFlightAssistantReply) {
         )
     }
 }
+
+private val CHAT_CONTROL_PILL_MIN_HEIGHT = 40.dp
 
 @Composable
 private fun <T> EnumMenuButton(
@@ -1255,16 +1282,10 @@ private fun <T> EnumMenuButton(
     var expanded by rememberSaveable(title) { mutableStateOf(false) }
 
     Box {
-        FilledTonalButton(
+        ControlActionPill(
+            text = "$title • $value",
             onClick = { expanded = true },
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f),
-                contentColor = MaterialTheme.colorScheme.onSurface,
-            ),
-        ) {
-            Text("$title • $value")
-        }
+        )
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -1283,13 +1304,12 @@ private fun <T> EnumMenuButton(
 }
 
 @Composable
-private fun HeaderActionPill(
-    text: String,
+private fun HeaderChromeIconButton(
     icon: ImageVector,
+    contentDescription: String,
     onClick: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
         tonalElevation = 0.dp,
@@ -1298,8 +1318,102 @@ private fun HeaderActionPill(
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
         ),
     ) {
+        IconButton(
+            modifier = Modifier.size(40.dp),
+            onClick = onClick,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ControlActionPill(
+    text: String,
+    onClick: () -> Unit,
+    highlight: Color = MaterialTheme.colorScheme.primary,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f),
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = containerColor,
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = highlight.copy(alpha = 0.16f),
+        ),
+    ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier
+                .defaultMinSize(minHeight = CHAT_CONTROL_PILL_MIN_HEIGHT)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge,
+                color = contentColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ControlTogglePill(
+    text: String,
+    icon: ImageVector,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val highlight = if (selected) {
+        MaterialTheme.colorScheme.secondary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val containerColor = when {
+        !enabled -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
+        selected -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f)
+    }
+    val contentColor = if (selected && enabled) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else if (enabled) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
+    }
+
+    Surface(
+        modifier = modifier.clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = containerColor,
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (selected && enabled) {
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f)
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+            },
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .defaultMinSize(minHeight = CHAT_CONTROL_PILL_MIN_HEIGHT)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1307,12 +1421,14 @@ private fun HeaderActionPill(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.primary,
+                tint = if (enabled) highlight else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
             )
             Text(
                 text = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = contentColor,
             )
         }
     }
@@ -1336,7 +1452,9 @@ private fun ControlStatusPill(
         ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier
+                .defaultMinSize(minHeight = CHAT_CONTROL_PILL_MIN_HEIGHT)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

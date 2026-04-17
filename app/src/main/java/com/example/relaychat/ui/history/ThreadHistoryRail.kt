@@ -1,6 +1,5 @@
 ﻿package com.example.relaychat.ui.history
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -8,15 +7,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,9 +24,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
@@ -68,14 +65,16 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ThreadHistoryRail(
     uiState: RelayChatUiState,
     viewModel: RelayChatViewModel,
     onCopyTranscript: (ChatThread) -> Unit,
+    onCollapse: () -> Unit,
+    closeAfterThreadSelection: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(HistoryQuickFilter.ALL) }
     var renameTarget by remember { mutableStateOf<ChatThread?>(null) }
@@ -91,11 +90,10 @@ fun ThreadHistoryRail(
         )
     }
     val visibleCount = sections.sumOf { it.items.size }
-    val recentItems = remember(sections) { sections.flatMap { it.items }.take(6) }
     val currentThread = uiState.currentThread
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         tonalElevation = 0.dp,
@@ -103,6 +101,7 @@ fun ThreadHistoryRail(
     ) {
         Column(
             modifier = Modifier
+                .fillMaxHeight()
                 .fillMaxWidth()
                 .animateContentSize()
                 .padding(horizontal = 14.dp, vertical = 14.dp),
@@ -164,155 +163,126 @@ fun ThreadHistoryRail(
                         contentDescription = stringResource(R.string.action_new_chat),
                         onClick = {
                             viewModel.createThread()
-                            expanded = false
                             query = ""
+                            if (closeAfterThreadSelection) {
+                                onCollapse()
+                            }
                         },
                     )
                     RailIconButton(
-                        icon = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = stringResource(
-                            if (expanded) {
-                                R.string.history_collapse_desc
-                            } else {
-                                R.string.history_expand_desc
-                            }
-                        ),
-                        onClick = { expanded = !expanded },
+                        icon = Icons.Outlined.Menu,
+                        contentDescription = stringResource(R.string.history_collapse_desc),
+                        onClick = onCollapse,
                     )
                 }
             }
 
-            if (!expanded) {
-                if (recentItems.isEmpty()) {
-                    RelayEmptyStateCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        icon = Icons.Outlined.History,
-                        title = stringResource(R.string.history_empty_title),
-                        body = stringResource(R.string.history_empty_body),
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.history_search_label)) },
+                singleLine = true,
+                leadingIcon = {
+                    Icon(Icons.Outlined.Search, contentDescription = null)
+                },
+                shape = RoundedCornerShape(22.dp),
+                colors = relayOutlinedTextFieldColors(),
+            )
+
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                HistoryQuickFilter.entries.forEach { option ->
+                    AssistChip(
+                        onClick = { filter = option },
+                        label = { Text(option.label()) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (filter == option) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
+                            },
+                            labelColor = if (filter == option) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        ),
                     )
-                } else {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(end = 2.dp),
-                    ) {
-                        items(recentItems, key = { it.thread.id }) { item ->
-                            CompactThreadChip(
+                }
+            }
+
+            if (currentThread != null) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AssistChip(
+                        onClick = { onCopyTranscript(currentThread) },
+                        label = { Text(stringResource(R.string.action_copy_transcript)) },
+                        leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                    )
+                    AssistChip(
+                        onClick = { viewModel.clearCurrentThread() },
+                        label = { Text(stringResource(R.string.action_clear_thread)) },
+                        leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
+                    )
+                }
+            }
+
+            if (sections.isEmpty()) {
+                RelayEmptyStateCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Outlined.Search,
+                    title = if (query.isBlank()) {
+                        stringResource(R.string.history_empty_title)
+                    } else {
+                        stringResource(R.string.history_no_match_title)
+                    },
+                    body = if (query.isBlank()) {
+                        stringResource(R.string.history_empty_body)
+                    } else {
+                        stringResource(R.string.history_no_match_body)
+                    },
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = true),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 2.dp),
+                ) {
+                    sections.forEach { section ->
+                        item(key = "section-${section.title}") {
+                            Text(
+                                text = section.title,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp),
+                            )
+                        }
+                        items(section.items, key = { it.thread.id }) { item ->
+                            RailThreadRow(
                                 item = item,
                                 isBusy = uiState.visibleInFlightReply?.threadId == item.thread.id,
-                                onClick = { viewModel.selectThread(item.thread.id) },
+                                onOpen = {
+                                    viewModel.selectThread(item.thread.id)
+                                    if (closeAfterThreadSelection) {
+                                        onCollapse()
+                                    }
+                                },
+                                onCopyTranscript = { onCopyTranscript(item.thread) },
+                                onDuplicate = { viewModel.duplicateThread(item.thread.id) },
+                                onRename = {
+                                    renameTarget = item.thread
+                                    renameDraft = item.thread.title
+                                },
+                                onClear = { viewModel.clearCurrentThread() },
+                                onDelete = { viewModel.deleteThread(item.thread.id) },
                             )
-                        }
-                    }
-                }
-            }
-
-            AnimatedVisibility(visible = expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(stringResource(R.string.history_search_label)) },
-                        singleLine = true,
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Search, contentDescription = null)
-                        },
-                        shape = RoundedCornerShape(22.dp),
-                        colors = relayOutlinedTextFieldColors(),
-                    )
-
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        HistoryQuickFilter.entries.forEach { option ->
-                            AssistChip(
-                                onClick = { filter = option },
-                                label = { Text(option.label()) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = if (filter == option) {
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.95f)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
-                                    },
-                                    labelColor = if (filter == option) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                ),
-                            )
-                        }
-                    }
-
-                    if (currentThread != null) {
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            AssistChip(
-                                onClick = { onCopyTranscript(currentThread) },
-                                label = { Text(stringResource(R.string.action_copy_transcript)) },
-                                leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
-                            )
-                            AssistChip(
-                                onClick = { viewModel.clearCurrentThread() },
-                                label = { Text(stringResource(R.string.action_clear_thread)) },
-                                leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
-                            )
-                        }
-                    }
-
-                    if (sections.isEmpty()) {
-                        RelayEmptyStateCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            icon = Icons.Outlined.Search,
-                            title = if (query.isBlank()) {
-                                stringResource(R.string.history_empty_title)
-                            } else {
-                                stringResource(R.string.history_no_match_title)
-                            },
-                            body = if (query.isBlank()) {
-                                stringResource(R.string.history_empty_body)
-                            } else {
-                                stringResource(R.string.history_no_match_body)
-                            },
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 320.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            sections.forEach { section ->
-                                item(key = "section-${section.title}") {
-                                    Text(
-                                        text = section.title,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 4.dp),
-                                    )
-                                }
-                                items(section.items, key = { it.thread.id }) { item ->
-                                    RailThreadRow(
-                                        item = item,
-                                        isBusy = uiState.visibleInFlightReply?.threadId == item.thread.id,
-                                        onOpen = {
-                                            viewModel.selectThread(item.thread.id)
-                                            expanded = false
-                                        },
-                                        onCopyTranscript = { onCopyTranscript(item.thread) },
-                                        onDuplicate = { viewModel.duplicateThread(item.thread.id) },
-                                        onRename = {
-                                            renameTarget = item.thread
-                                            renameDraft = item.thread.title
-                                        },
-                                        onClear = { viewModel.clearCurrentThread() },
-                                        onDelete = { viewModel.deleteThread(item.thread.id) },
-                                    )
-                                }
-                            }
                         }
                     }
                 }
@@ -352,63 +322,6 @@ fun ThreadHistoryRail(
                 }
             },
         )
-    }
-}
-
-@Composable
-private fun CompactThreadChip(
-    item: HistoryThreadItem,
-    isBusy: Boolean,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp),
-        color = if (item.isSelected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.96f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f)
-        },
-        tonalElevation = 0.dp,
-        border = BorderStroke(
-            1.dp,
-            if (item.isSelected) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-            } else {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
-            },
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .widthIn(min = 140.dp, max = 220.dp)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                text = localizedThreadTitle(item.thread.title),
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = item.preview,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (item.isSelected || isBusy) {
-                RelayInfoPill(
-                    text = if (isBusy) {
-                        stringResource(R.string.history_badge_replying)
-                    } else {
-                        stringResource(R.string.history_badge_current)
-                    },
-                    highlight = if (isBusy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
     }
 }
 

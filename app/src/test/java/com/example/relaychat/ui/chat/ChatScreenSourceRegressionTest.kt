@@ -15,6 +15,13 @@ class ChatScreenSourceRegressionTest {
     }
 
     @Test
+    fun chatScreenUsesAdaptiveHistoryRailLayout() {
+        val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
+
+        assertThat(source).contains("historyRailLayoutMode(")
+    }
+
+    @Test
     fun composerBusyStateUsesThinkingLanguage() {
         val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
 
@@ -22,10 +29,24 @@ class ChatScreenSourceRegressionTest {
     }
 
     @Test
+    fun composerNoLongerForcesTwoLineMinimumHeight() {
+        val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
+
+        assertThat(source).doesNotContain("minLines = 2")
+    }
+
+    @Test
     fun assistantMetadataDoesNotRenderRawRequestPrefix() {
         val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
 
         assertThat(source).doesNotContain("text = \"request \$it\"")
+    }
+
+    @Test
+    fun topControlRowUsesSharedPillSizingToken() {
+        val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
+
+        assertThat(source).contains("CHAT_CONTROL_PILL_MIN_HEIGHT")
     }
 
     private fun readProjectFile(relativePath: String): String {

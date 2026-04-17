@@ -1,5 +1,6 @@
 package com.example.relaychat.ui.chat
 
+import com.example.relaychat.app.InFlightAssistantStage
 import com.google.common.truth.Truth.assertThat
 import java.nio.file.Files
 import java.nio.file.Path
@@ -12,6 +13,26 @@ class PendingStatusBeamLayoutTest {
         val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
 
         assertThat(source).doesNotContain(".padding(start = (220 * offset).dp)")
+    }
+
+    @Test
+    fun animatedStatusBeamUsesDedicatedDurationHelper() {
+        val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
+
+        assertThat(source).contains("pendingStatusBeamDurationMillis(")
+    }
+
+    @Test
+    fun pendingStatusBeamStartsAtTrackOrigin() {
+        assertThat(pendingStatusBeamStartOffsetPx(trackWidthPx = 240f, beamWidthFraction = 0.24f, progress = 0f))
+            .isEqualTo(0f)
+    }
+
+    @Test
+    fun pendingStatusBeamDurationsFavorCalmerThinkingCadence() {
+        assertThat(pendingStatusBeamDurationMillis(InFlightAssistantStage.THINKING)).isGreaterThan(1_800)
+        assertThat(pendingStatusBeamDurationMillis(InFlightAssistantStage.SEARCHING))
+            .isGreaterThan(pendingStatusBeamDurationMillis(InFlightAssistantStage.STREAMING))
     }
 
     private fun readProjectFile(relativePath: String): String {

@@ -237,13 +237,12 @@ class RelayChatSmokeTest {
     }
 
     @Test
-    fun historyRail_expands_switchesThreads_andClearsCurrentThread() {
+    fun historyRail_expandsCollapses_andClearsCurrentThread() {
         val targetContext = appContext()
         val threadRepository = ThreadRepository(targetContext)
         val titleOne = "History Alpha ${System.currentTimeMillis()}"
         val titleTwo = "History Beta ${System.currentTimeMillis()}"
         var firstThreadId = ""
-        var secondThreadId = ""
 
         runBlocking {
             firstThreadId = threadRepository.createThread(title = titleOne, select = true)
@@ -251,7 +250,7 @@ class RelayChatSmokeTest {
                 message = ChatMessage(role = ChatRole.USER, text = "alpha message"),
                 threadId = firstThreadId,
             )
-            secondThreadId = threadRepository.createThread(title = titleTwo, select = false)
+            val secondThreadId = threadRepository.createThread(title = titleTwo, select = false)
             threadRepository.appendMessage(
                 message = ChatMessage(role = ChatRole.USER, text = "beta message"),
                 threadId = secondThreadId,
@@ -272,19 +271,12 @@ class RelayChatSmokeTest {
         composeRule.onNodeWithContentDescription(collapseDescription).performClick()
         assertThat(nodeExists(searchLabel)).isFalse()
 
-        composeRule.onNodeWithText(titleTwo, substring = true).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            runBlocking {
-                threadRepository.selectedThreadIdFlow.first() == secondThreadId
-            }
-        }
-        assertThat(nodeExists(titleTwo, substring = true)).isTrue()
-
         composeRule.onNodeWithContentDescription(expandDescription).performClick()
+        composeRule.onNodeWithText(searchLabel).fetchSemanticsNode()
         composeRule.onNodeWithText(clearThreadLabel).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runBlocking {
-                threadRepository.getThread(secondThreadId)?.messages.isNullOrEmpty()
+                threadRepository.getThread(firstThreadId)?.messages.isNullOrEmpty()
             }
         }
     }
