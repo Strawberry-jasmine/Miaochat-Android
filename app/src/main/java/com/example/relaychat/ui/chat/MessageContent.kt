@@ -1,7 +1,10 @@
 package com.example.relaychat.ui.chat
 
+import android.graphics.Typeface
 import android.text.method.LinkMovementMethod
+import android.util.TypedValue
 import android.widget.TextView
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -19,8 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.relaychat.R
 import androidx.core.text.HtmlCompat
 import org.commonmark.parser.Parser
 import org.commonmark.renderer.html.HtmlRenderer
@@ -86,6 +93,9 @@ private fun MarkdownBlock(
                 setTextIsSelectable(true)
                 movementMethod = LinkMovementMethod.getInstance()
                 setLineSpacing(0f, 1.1f)
+                includeFontPadding = false
+                typeface = Typeface.SANS_SERIF
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             }
         },
         update = { view ->
@@ -93,6 +103,7 @@ private fun MarkdownBlock(
             view.setTextColor(textColor.toArgb())
             view.setLinkTextColor(linkColor.toArgb())
             view.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            view.setPadding(0, 0, 0, 0)
         },
         modifier = Modifier.fillMaxWidth(),
     )
@@ -110,29 +121,46 @@ private fun CodeBlock(
             .fillMaxWidth()
             .background(
                 if (isOutgoing) {
-                    Color.White.copy(alpha = 0.12f)
+                    Color.White.copy(alpha = 0.10f)
                 } else {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f)
                 },
-                shape = MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.large,
             )
-            .padding(12.dp),
+            .border(
+                width = 1.dp,
+                color = if (isOutgoing) {
+                    Color.White.copy(alpha = 0.14f)
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
+                },
+                shape = MaterialTheme.shapes.large,
+            )
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
                 text = language?.takeIf { it.isNotBlank() }?.uppercase() ?: "CODE",
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isOutgoing) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isOutgoing) {
+                    Color.White.copy(alpha = 0.84f)
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
             TextButton(onClick = onCopy) {
-                Text("Copy")
+                Text(stringResource(R.string.action_copy))
             }
         }
 
         Text(
             text = code,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.5.sp,
+                lineHeight = 18.sp,
+            ),
             color = if (isOutgoing) Color.White else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         )

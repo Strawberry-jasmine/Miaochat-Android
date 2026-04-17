@@ -1,4 +1,4 @@
-package com.example.relaychat.ui.chat
+﻿package com.example.relaychat.ui.chat
 
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,25 +12,33 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -58,10 +66,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -77,20 +84,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.relaychat.R
 import com.example.relaychat.app.InFlightAssistantReply
+import com.example.relaychat.app.InFlightAssistantStage
+import com.example.relaychat.app.PendingReplyVisuals
 import com.example.relaychat.app.PendingTimelineStatus
 import com.example.relaychat.app.RelayChatUiState
 import com.example.relaychat.app.RelayChatViewModel
@@ -99,10 +112,13 @@ import com.example.relaychat.core.model.ChatMessage
 import com.example.relaychat.core.model.ChatRole
 import com.example.relaychat.core.model.RequestTuningPreset
 import com.example.relaychat.ui.components.RelayEmptyStateCard
-import com.example.relaychat.ui.components.RelayGlassCard
-import com.example.relaychat.ui.components.RelayInfoPill
 import com.example.relaychat.ui.components.RelaySectionEyebrow
 import com.example.relaychat.ui.components.relayOutlinedTextFieldColors
+import com.example.relaychat.ui.history.ThreadHistoryRail
+import com.example.relaychat.ui.strings.localizedThreadTitle
+import com.example.relaychat.ui.strings.rememberPendingReplyTextSet
+import com.example.relaychat.ui.strings.stringFor
+import com.example.relaychat.ui.strings.titleRes
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -113,7 +129,6 @@ import kotlinx.coroutines.launch
 fun ChatScreen(
     uiState: RelayChatUiState,
     viewModel: RelayChatViewModel,
-    onShowHistory: () -> Unit,
     onCopyTranscript: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -126,6 +141,16 @@ fun ChatScreen(
     val currentThread = uiState.currentThread
     val messageListState = rememberLazyListState()
     val appName = stringResource(R.string.app_name)
+    val pendingTextSet = rememberPendingReplyTextSet()
+    val draftFromUserNote = stringResource(R.string.chat_note_draft_user)
+    val draftFromAssistantNote = stringResource(R.string.chat_note_draft_assistant)
+    val messageCount = currentThread?.messages?.size ?: 0
+    val threadSubtitle = when {
+        currentThread == null || messageCount == 0 -> stringResource(R.string.chat_header_subtitle_empty)
+        uiState.isSending -> stringResource(R.string.chat_header_subtitle_reply_in_progress, messageCount)
+        messageCount == 1 -> stringResource(R.string.chat_header_subtitle_message_one)
+        else -> stringResource(R.string.chat_header_subtitle_message_many, messageCount)
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -144,79 +169,69 @@ fun ChatScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .imePadding(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        RelayGlassCard(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            accent = MaterialTheme.colorScheme.primary,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top,
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    RelaySectionEyebrow(text = appName)
-                    Text(
-                        text = currentThread?.title ?: "New Chat",
-                        style = MaterialTheme.typography.displaySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = "${uiState.settings.provider.displayName} | ${uiState.settings.provider.model}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FilledTonalButton(
-                            onClick = onShowHistory,
-                            shape = RoundedCornerShape(999.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
-                        ) {
-                            Icon(Icons.Outlined.History, contentDescription = "History")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("History")
-                        }
-                        RelayInfoPill(
-                            text = if (uiState.controls.webSearchEnabled) "Web enabled" else "Web off",
-                            icon = if (uiState.controls.webSearchEnabled) Icons.Outlined.Public else Icons.Outlined.AutoAwesome,
-                            highlight = if (uiState.controls.webSearchEnabled) {
-                                MaterialTheme.colorScheme.secondary
-                            } else {
-                                MaterialTheme.colorScheme.primary
-                            },
-                        )
-                    }
-                }
+                RelaySectionEyebrow(text = appName)
+                Text(
+                    text = localizedThreadTitle(currentThread?.title.orEmpty()),
+                    style = MaterialTheme.typography.displaySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = threadSubtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Box {
-                    IconButton(onClick = { actionMenuExpanded = true }) {
-                        Icon(Icons.Outlined.MoreHoriz, contentDescription = "Actions")
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
+                        tonalElevation = 0.dp,
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+                        ),
+                    ) {
+                        IconButton(onClick = { actionMenuExpanded = true }) {
+                            Icon(
+                                Icons.Outlined.MoreHoriz,
+                                contentDescription = stringResource(R.string.chat_menu_desc),
+                            )
+                        }
                     }
                     DropdownMenu(
                         expanded = actionMenuExpanded,
                         onDismissRequest = { actionMenuExpanded = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("New chat") },
+                            text = { Text(stringResource(R.string.action_new_chat)) },
                             onClick = {
                                 actionMenuExpanded = false
                                 viewModel.createThread()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Rename thread") },
+                            text = { Text(stringResource(R.string.action_rename)) },
                             onClick = {
                                 actionMenuExpanded = false
                                 renameDraft = currentThread?.title.orEmpty()
@@ -224,21 +239,21 @@ fun ChatScreen(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Duplicate thread") },
+                            text = { Text(stringResource(R.string.action_duplicate)) },
                             onClick = {
                                 actionMenuExpanded = false
                                 viewModel.duplicateCurrentThread()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Copy thread") },
+                            text = { Text(stringResource(R.string.action_copy_transcript)) },
                             onClick = {
                                 actionMenuExpanded = false
-                                onCopyTranscript(buildTranscript(currentThread?.messages.orEmpty()))
+                                onCopyTranscript(buildTranscript(currentThread?.messages.orEmpty(), context))
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Clear thread") },
+                            text = { Text(stringResource(R.string.action_clear_thread)) },
                             onClick = {
                                 actionMenuExpanded = false
                                 viewModel.clearCurrentThread()
@@ -254,7 +269,8 @@ fun ChatScreen(
                 .weight(1f)
                 .fillMaxWidth(),
             state = messageListState,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(top = 6.dp, bottom = 10.dp),
         ) {
             item(key = "controls") {
                 ChatControlPanel(
@@ -278,7 +294,7 @@ fun ChatScreen(
                     RelayEmptyStateCard(
                         modifier = Modifier.fillMaxWidth(),
                         icon = Icons.Outlined.ChatBubbleOutline,
-                        title = "Start with a clean thread",
+                        title = stringResource(R.string.chat_empty_state_title),
                         body = stringResource(R.string.chat_empty_state_body, appName),
                     )
                 }
@@ -294,9 +310,9 @@ fun ChatScreen(
                             viewModel.useMessageAsDraft(
                                 message,
                                 if (message.role == ChatRole.USER) {
-                                    "Draft copied from an earlier user message"
+                                    draftFromUserNote
                                 } else {
-                                    "Draft copied from an assistant reply"
+                                    draftFromAssistantNote
                                 },
                             )
                         },
@@ -312,9 +328,17 @@ fun ChatScreen(
             }
 
             item(key = "tail-space") {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
+
+        ThreadHistoryRail(
+            uiState = uiState,
+            viewModel = viewModel,
+            onCopyTranscript = { thread ->
+                onCopyTranscript(buildTranscript(thread.messages, context))
+            },
+        )
 
         Composer(
             uiState = uiState,
@@ -325,6 +349,7 @@ fun ChatScreen(
             onPickImage = {
                 photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
+            pendingTextSet = pendingTextSet,
         )
     }
 
@@ -347,7 +372,7 @@ fun ChatScreen(
             onDismissRequest = { renameDialogVisible = false },
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
             shape = RoundedCornerShape(28.dp),
-            title = { Text("Rename thread") },
+            title = { Text(stringResource(R.string.thread_rename_title)) },
             text = {
                 OutlinedTextField(
                     value = renameDraft,
@@ -364,10 +389,10 @@ fun ChatScreen(
                         viewModel.renameCurrentThread(renameDraft)
                         renameDialogVisible = false
                     }
-                ) { Text("Save") }
+                ) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { renameDialogVisible = false }) { Text("Cancel") }
+                TextButton(onClick = { renameDialogVisible = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -383,99 +408,178 @@ private fun ChatControlPanel(
     onWebSearchChanged: (Boolean) -> Unit,
     onRegenerate: () -> Unit,
 ) {
+    val context = LocalContext.current
     val currentThread = uiState.currentThread
-    RelayGlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        accent = MaterialTheme.colorScheme.secondary,
-    ) {
-        RelaySectionEyebrow(text = "Controls")
-        Text(
-            text = "${currentThread?.messages?.size ?: 0} messages | ${uiState.resolvedEndpoint}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    var advancedControlsVisible by rememberSaveable(uiState.settings.provider.presetId) { mutableStateOf(false) }
+    val activePreset = remember(uiState.controls, uiState.settings.provider) {
+        RequestTuningPreset.entries.firstOrNull { preset ->
+            preset.matches(uiState.controls, uiState.settings.provider)
+        }
+    }
+    val threadSummary = when (val count = currentThread?.messages?.size ?: 0) {
+        0 -> stringResource(R.string.chat_controls_thread_fresh)
+        else -> pluralStringResource(R.plurals.thread_message_count, count, count)
+    }
 
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateContentSize(animationSpec = androidx.compose.animation.core.tween(280, easing = FastOutSlowInEasing))
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            RequestTuningPreset.entries.forEach { preset ->
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ControlStatusPill(
+                    text = "${uiState.settings.provider.displayName} • ${uiState.settings.provider.model}",
+                    icon = Icons.Outlined.AutoAwesome,
+                    highlight = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.widthIn(max = 280.dp),
+                )
                 FilterChip(
-                    selected = preset.matches(uiState.controls, uiState.settings.provider),
-                    onClick = { onApplyPreset(preset) },
-                    label = { Text(preset.title) },
+                    selected = uiState.controls.webSearchEnabled,
+                    onClick = { onWebSearchChanged(!uiState.controls.webSearchEnabled) },
+                    enabled = uiState.settings.provider.supportsWebSearch,
+                    label = {
+                        Text(
+                            if (!uiState.settings.provider.supportsWebSearch) {
+                                stringResource(R.string.chat_controls_web_unavailable)
+                            } else if (uiState.controls.webSearchEnabled) {
+                                stringResource(R.string.chat_controls_web_on)
+                            } else {
+                                stringResource(R.string.chat_controls_web_off)
+                            }
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Public,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        selectedLeadingIconColor = MaterialTheme.colorScheme.secondary,
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f),
+                        labelColor = MaterialTheme.colorScheme.onSurface,
+                        iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f),
+                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (uiState.controls.webSearchEnabled) {
+                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f)
+                        } else {
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+                        },
                     ),
                 )
-            }
-        }
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            EnumMenuButton(
-                title = "Reasoning",
-                value = uiState.controls.reasoningEffort.name.lowercase(),
-                options = com.example.relaychat.core.model.ReasoningEffort.entries,
-                optionLabel = { it.name.lowercase() },
-                onSelected = onReasoningSelected,
-            )
-
-            if (uiState.settings.provider.supportsVerbosity) {
-                EnumMenuButton(
-                    title = "Verbosity",
-                    value = uiState.controls.verbosity.name.lowercase(),
-                    options = com.example.relaychat.core.model.VerbosityLevel.entries,
-                    optionLabel = { it.name.lowercase() },
-                    onSelected = onVerbositySelected,
+                ControlStatusPill(
+                    text = activePreset?.let { stringResource(it.titleRes()) } ?: stringResource(R.string.chat_controls_custom),
+                    icon = Icons.Outlined.ChatBubbleOutline,
+                    highlight = if (activePreset == RequestTuningPreset.DEEP) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                )
+                AssistChip(
+                    onClick = { advancedControlsVisible = !advancedControlsVisible },
+                    label = { Text(if (advancedControlsVisible) stringResource(R.string.chat_controls_less) else stringResource(R.string.chat_controls_tune)) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f),
+                        labelColor = MaterialTheme.colorScheme.onSurface,
+                        leadingIconContentColor = MaterialTheme.colorScheme.primary,
+                    ),
                 )
             }
 
             Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f))
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.34f),
-                        shape = RoundedCornerShape(999.dp),
-                    )
-                    .padding(start = 12.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Web/search",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Switch(
-                    checked = uiState.controls.webSearchEnabled,
-                    onCheckedChange = onWebSearchChanged,
-                    enabled = uiState.settings.provider.supportsWebSearch,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
-                        checkedTrackColor = MaterialTheme.colorScheme.secondary,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.surface,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        uncheckedBorderColor = MaterialTheme.colorScheme.outline,
-                    ),
-                )
+                RequestTuningPreset.entries.forEach { preset ->
+                    FilterChip(
+                        selected = preset.matches(uiState.controls, uiState.settings.provider),
+                        onClick = { onApplyPreset(preset) },
+                        label = { Text(stringResource(preset.titleRes())) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.96f),
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            selectedLeadingIconColor = MaterialTheme.colorScheme.primary,
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f),
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = if (preset.matches(uiState.controls, uiState.settings.provider)) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
+                            },
+                        ),
+                    )
+                }
             }
 
-            if (currentThread?.messages?.lastOrNull()?.role == ChatRole.ASSISTANT && !uiState.isSending) {
-                AssistChip(
-                    onClick = onRegenerate,
-                    label = { Text("Regenerate") },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.74f),
-                        labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        leadingIconContentColor = MaterialTheme.colorScheme.tertiary,
-                    ),
-                )
+            AnimatedVisibility(visible = advancedControlsVisible) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        EnumMenuButton(
+                            title = stringResource(R.string.chat_controls_reasoning),
+                            value = context.stringFor(uiState.controls.reasoningEffort),
+                            options = com.example.relaychat.core.model.ReasoningEffort.entries,
+                            optionLabel = { context.stringFor(it) },
+                            onSelected = onReasoningSelected,
+                        )
+
+                        if (uiState.settings.provider.supportsVerbosity) {
+                            EnumMenuButton(
+                                title = stringResource(R.string.chat_controls_verbosity),
+                                value = context.stringFor(uiState.controls.verbosity),
+                                options = com.example.relaychat.core.model.VerbosityLevel.entries,
+                                optionLabel = { context.stringFor(it) },
+                                onSelected = onVerbositySelected,
+                            )
+                        }
+
+                        if (currentThread?.messages?.lastOrNull()?.role == ChatRole.ASSISTANT && !uiState.isSending) {
+                            AssistChip(
+                                onClick = onRegenerate,
+                                label = { Text(stringResource(R.string.action_regenerate)) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.84f),
+                                    labelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.tertiary,
+                                ),
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "$threadSummary • ${uiState.resolvedEndpoint}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -489,131 +593,244 @@ private fun Composer(
     onClearAttachment: () -> Unit,
     onClearComposerContext: () -> Unit,
     onPickImage: () -> Unit,
+    pendingTextSet: com.example.relaychat.app.PendingReplyTextSet,
 ) {
-    RelayGlassCard(
+    val reply = uiState.visibleInFlightReply
+    val pendingVisuals = remember(reply?.threadId, reply?.stage, reply?.detail, reply?.text) {
+        reply?.let { pendingReplyVisuals(reply = it, textSet = pendingTextSet) }
+    }
+    val busyLabel = pendingVisuals?.title ?: stringResource(R.string.pending_title_thinking)
+    val busyDetail = pendingVisuals?.detail ?: stringResource(R.string.chat_busy_default_detail)
+    val busyAccent = when (reply?.stage) {
+        InFlightAssistantStage.SEARCHING -> MaterialTheme.colorScheme.secondary
+        InFlightAssistantStage.STREAMING -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        accent = MaterialTheme.colorScheme.primary,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        shape = RoundedCornerShape(30.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+        ),
     ) {
-        AnimatedVisibility(visible = uiState.composerNote != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = uiState.composerNote.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = onClearComposerContext) {
-                    Text("Clear")
-                }
-            }
-        }
-
-        AnimatedVisibility(visible = uiState.attachment != null) {
-            uiState.attachment?.let { attachment ->
-                val bitmap = remember(attachment.id) {
-                    BitmapFactory.decodeByteArray(attachment.data, 0, attachment.data.size)
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.70f))
-                        .border(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f),
-                            shape = RoundedCornerShape(22.dp),
-                        )
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (bitmap != null) {
-                        androidx.compose.foundation.Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(58.dp)
-                                .clip(RoundedCornerShape(16.dp)),
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Image attached", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            attachment.mimeType,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    TextButton(onClick = onClearAttachment) {
-                        Text("Remove")
-                    }
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            FilledTonalButton(
-                onClick = onPickImage,
-                modifier = Modifier.padding(bottom = 4.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
-            ) {
-                Icon(Icons.Outlined.AddPhotoAlternate, contentDescription = "Attach image")
-            }
-
-            OutlinedTextField(
-                value = uiState.draft,
-                onValueChange = onDraftChange,
+        Box {
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 56.dp, max = 160.dp),
-                placeholder = { Text("Ask anything, paste code, or attach an image...") },
-                shape = RoundedCornerShape(24.dp),
-                colors = relayOutlinedTextFieldColors(),
-            )
-
-            FilledTonalButton(
-                onClick = {
-                    if (!uiState.isSending) {
-                        onSend()
-                    }
-                },
-                enabled = uiState.canSend || uiState.isSending,
-                shape = RoundedCornerShape(20.dp),
-                modifier = Modifier.padding(bottom = 4.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            ) {
-                if (uiState.isSending) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.20f),
+                                Color.Transparent,
+                            )
                         )
-                        Text("Sending")
+                    )
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                AnimatedVisibility(visible = uiState.isSending || uiState.composerNote != null) {
+                    if (uiState.isSending) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ControlStatusPill(
+                                text = busyLabel,
+                                icon = pendingStageIcon(reply?.stage ?: InFlightAssistantStage.THINKING),
+                                highlight = busyAccent,
+                            )
+                            Text(
+                                text = busyDetail,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = uiState.composerNote.orEmpty(),
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            TextButton(onClick = onClearComposerContext) {
+                                Text(stringResource(R.string.action_clear))
+                            }
+                        }
                     }
-                } else {
-                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Send")
+                }
+
+                AnimatedVisibility(visible = uiState.attachment != null) {
+                    uiState.attachment?.let { attachment ->
+                        val bitmap = remember(attachment.id) {
+                            BitmapFactory.decodeByteArray(attachment.data, 0, attachment.data.size)
+                        }
+
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(22.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.74f),
+                            tonalElevation = 0.dp,
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            ),
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (bitmap != null) {
+                                    Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(RoundedCornerShape(16.dp)),
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        stringResource(R.string.chat_composer_attachment_title),
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
+                                    Text(
+                                        attachment.mimeType,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                TextButton(onClick = onClearAttachment) {
+                                    Text(stringResource(R.string.action_remove))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(26.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.46f),
+                    tonalElevation = 0.dp,
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f),
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(18.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.94f),
+                        ) {
+                            IconButton(onClick = onPickImage) {
+                                Icon(
+                                    Icons.Outlined.AddPhotoAlternate,
+                                    contentDescription = stringResource(R.string.chat_composer_attach_image_desc),
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = uiState.draft,
+                            onValueChange = onDraftChange,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 68.dp, max = 160.dp),
+                            placeholder = {
+                                Text(
+                                    if (uiState.isSending) {
+                                        stringResource(R.string.chat_composer_placeholder_busy)
+                                    } else {
+                                        stringResource(R.string.chat_composer_placeholder_idle)
+                                    }
+                                )
+                            },
+                            minLines = 2,
+                            maxLines = 6,
+                            shape = RoundedCornerShape(22.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent,
+                                disabledBorderColor = Color.Transparent,
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.88f),
+                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                            ),
+                        )
+
+                        FilledTonalButton(
+                            onClick = {
+                                if (!uiState.isSending) {
+                                    onSend()
+                                }
+                            },
+                            enabled = uiState.canSend || uiState.isSending,
+                            shape = RoundedCornerShape(22.dp),
+                            modifier = Modifier
+                                .padding(bottom = 4.dp)
+                                .animateContentSize(animationSpec = androidx.compose.animation.core.tween(220, easing = FastOutSlowInEasing)),
+                            contentPadding = PaddingValues(
+                                horizontal = if (uiState.isSending) 16.dp else 14.dp,
+                                vertical = 0.dp,
+                            ),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            ),
+                        ) {
+                            if (uiState.isSending) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                    Text(stringResource(R.string.chat_composer_thinking_button))
+                                }
+                            } else {
+                                Icon(
+                                    Icons.Outlined.ArrowUpward,
+                                    contentDescription = stringResource(R.string.chat_composer_send_desc),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -634,91 +851,134 @@ private fun MessageBubble(
     var menuExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
     val isOutgoing = message.role == ChatRole.USER
     val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val bubbleShape = if (isOutgoing) {
+        RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 10.dp)
+    } else {
+        RoundedCornerShape(topStart = 12.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 28.dp)
+    }
     val bubbleBrush = if (isOutgoing) {
         Brush.linearGradient(
             colors = listOf(
                 MaterialTheme.colorScheme.primary,
-                lerp(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.tertiary, 0.18f),
+                lerp(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary, 0.22f),
             )
         )
     } else {
-        Brush.linearGradient(
+        Brush.verticalGradient(
             colors = listOf(
                 if (darkTheme) {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
                 } else {
-                    Color.White.copy(alpha = 0.92f)
+                    Color.White.copy(alpha = 0.94f)
                 },
                 if (darkTheme) {
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.84f)
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
                 } else {
-                    MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
                 },
             )
         )
     }
     val textColor = if (isOutgoing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val bubbleBorder = when {
+        isOutgoing -> Color.White.copy(alpha = if (darkTheme) 0.14f else 0.24f)
+        isLatestAssistant -> MaterialTheme.colorScheme.primary.copy(alpha = if (darkTheme) 0.26f else 0.18f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = if (darkTheme) 0.40f else 0.24f)
+    }
+    val bubbleShadow = when {
+        isOutgoing -> MaterialTheme.colorScheme.primary.copy(alpha = if (darkTheme) 0.22f else 0.16f)
+        isLatestAssistant -> MaterialTheme.colorScheme.primary.copy(alpha = if (darkTheme) 0.18f else 0.10f)
+        else -> Color.Black.copy(alpha = if (darkTheme) 0.24f else 0.08f)
+    }
+    val metadata = remember(message) { messageMetaLine(message) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = if (isOutgoing) "You" else "Assistant",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Box {
-            Column(
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = if (isOutgoing) Alignment.CenterEnd else Alignment.CenterStart,
+        ) {
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth(if (isOutgoing) 0.9f else 0.96f)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(bubbleBrush)
-                    .border(
-                        width = 1.dp,
-                        color = if (isOutgoing) {
-                            Color.White.copy(alpha = if (darkTheme) 0.14f else 0.24f)
-                        } else {
-                            MaterialTheme.colorScheme.outline.copy(alpha = if (darkTheme) 0.58f else 0.34f)
-                        },
-                        shape = RoundedCornerShape(26.dp),
+                    .fillMaxWidth(if (isOutgoing) 0.84f else 0.94f)
+                    .shadow(
+                        elevation = if (isOutgoing) 18.dp else if (isLatestAssistant) 18.dp else 10.dp,
+                        shape = bubbleShape,
+                        ambientColor = bubbleShadow,
+                        spotColor = bubbleShadow,
                     )
                     .combinedClickable(
                         onClick = {},
                         onLongClick = { menuExpanded = true },
-                    )
-                    .animateContentSize(animationSpec = androidx.compose.animation.core.tween(280, easing = FastOutSlowInEasing))
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ),
+                shape = bubbleShape,
+                color = Color.Transparent,
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, bubbleBorder),
             ) {
-                if (message.text.isNotBlank()) {
-                    Box(modifier = Modifier.alpha(0.98f)) {
-                        androidx.compose.runtime.CompositionLocalProvider(
-                            androidx.compose.material3.LocalContentColor provides textColor,
-                        ) {
-                            MessageContent(
-                                text = message.text,
-                                isOutgoing = isOutgoing,
-                                onCopyCode = onCopyCode,
-                            )
-                        }
-                    }
-                }
-
-                message.attachments.forEach { attachment ->
-                    val bitmap = remember(attachment.id) {
-                        BitmapFactory.decodeByteArray(attachment.data, 0, attachment.data.size)
-                    }
-                    if (bitmap != null) {
-                        androidx.compose.foundation.Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = null,
+                Box(modifier = Modifier.background(bubbleBrush)) {
+                    if (!isOutgoing && isLatestAssistant) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp)),
+                                .padding(start = 10.dp, top = 12.dp, bottom = 12.dp)
+                                .width(3.dp)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.72f),
+                                            MaterialTheme.colorScheme.secondary.copy(alpha = 0.32f),
+                                        )
+                                    )
+                                )
                         )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize(animationSpec = androidx.compose.animation.core.tween(280, easing = FastOutSlowInEasing))
+                            .padding(
+                                start = if (!isOutgoing && isLatestAssistant) 20.dp else 16.dp,
+                                end = 16.dp,
+                                top = 15.dp,
+                                bottom = 15.dp,
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        if (message.text.isNotBlank()) {
+                            Box(modifier = Modifier.alpha(0.98f)) {
+                                androidx.compose.runtime.CompositionLocalProvider(
+                                    androidx.compose.material3.LocalContentColor provides textColor,
+                                ) {
+                                    MessageContent(
+                                        text = message.text,
+                                        isOutgoing = isOutgoing,
+                                        onCopyCode = onCopyCode,
+                                    )
+                                }
+                            }
+                        }
+
+                        message.attachments.forEach { attachment ->
+                            val bitmap = remember(attachment.id) {
+                                BitmapFactory.decodeByteArray(attachment.data, 0, attachment.data.size)
+                            }
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(20.dp)),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -729,7 +989,7 @@ private fun MessageBubble(
             ) {
                 if (message.text.isNotBlank()) {
                     DropdownMenuItem(
-                        text = { Text("Copy") },
+                        text = { Text(stringResource(R.string.action_copy)) },
                         leadingIcon = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
                         onClick = {
                             menuExpanded = false
@@ -737,7 +997,7 @@ private fun MessageBubble(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Use as draft") },
+                        text = { Text(stringResource(R.string.action_use_as_draft)) },
                         onClick = {
                             menuExpanded = false
                             onUseAsDraft()
@@ -745,7 +1005,7 @@ private fun MessageBubble(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("Branch thread here") },
+                    text = { Text(stringResource(R.string.action_branch_thread)) },
                     onClick = {
                         menuExpanded = false
                         onBranch()
@@ -753,7 +1013,7 @@ private fun MessageBubble(
                 )
                 if (!isOutgoing && isLatestAssistant) {
                     DropdownMenuItem(
-                        text = { Text("Regenerate last reply") },
+                        text = { Text(stringResource(R.string.action_regenerate_last_reply)) },
                         onClick = {
                             menuExpanded = false
                             onRegenerate()
@@ -763,135 +1023,149 @@ private fun MessageBubble(
             }
         }
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = timeText(message.createdAt),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (message.role == ChatRole.ASSISTANT) {
-                message.model?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                message.requestId?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = "request $it",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
+        Text(
+            text = metadata,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f),
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
     }
 }
 
 @Composable
 private fun PendingAssistantBubble(reply: InFlightAssistantReply) {
+    val pendingTextSet = rememberPendingReplyTextSet()
     val nowMs by produceState(initialValue = System.currentTimeMillis(), key1 = reply.threadId, key2 = reply.stage, key3 = reply.text.length) {
         while (true) {
             value = System.currentTimeMillis()
             delay(1_000L)
         }
     }
-    val visuals = remember(reply, nowMs) { pendingReplyVisuals(reply = reply, nowMs = nowMs) }
+    val visuals = remember(reply, nowMs, pendingTextSet) {
+        pendingReplyVisuals(reply = reply, textSet = pendingTextSet, nowMs = nowMs)
+    }
+    val accent = pendingStageAccent(reply.stage)
+    val bubbleShape = RoundedCornerShape(topStart = 12.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 28.dp)
 
-    Column(
+    Box(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentAlignment = Alignment.CenterStart,
     ) {
-        Text(
-            text = "Assistant",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        RelayGlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            accent = when (reply.stage) {
-                com.example.relaychat.app.InFlightAssistantStage.THINKING -> MaterialTheme.colorScheme.primary
-                com.example.relaychat.app.InFlightAssistantStage.SEARCHING -> MaterialTheme.colorScheme.secondary
-                com.example.relaychat.app.InFlightAssistantStage.STREAMING -> MaterialTheme.colorScheme.tertiary
-            },
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(18.dp),
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .shadow(
+                    elevation = 18.dp,
+                    shape = bubbleShape,
+                    ambientColor = accent.copy(alpha = 0.14f),
+                    spotColor = accent.copy(alpha = 0.14f),
+                ),
+            shape = bubbleShape,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+            tonalElevation = 0.dp,
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.18f)),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RelayInfoPill(
-                    text = visuals.stateLabel,
-                    icon = when (reply.stage) {
-                        com.example.relaychat.app.InFlightAssistantStage.THINKING -> Icons.Outlined.AutoAwesome
-                        com.example.relaychat.app.InFlightAssistantStage.SEARCHING -> Icons.Outlined.Public
-                        com.example.relaychat.app.InFlightAssistantStage.STREAMING -> Icons.Outlined.ChatBubbleOutline
-                    },
-                    highlight = when (reply.stage) {
-                        com.example.relaychat.app.InFlightAssistantStage.THINKING -> MaterialTheme.colorScheme.primary
-                        com.example.relaychat.app.InFlightAssistantStage.SEARCHING -> MaterialTheme.colorScheme.secondary
-                        com.example.relaychat.app.InFlightAssistantStage.STREAMING -> MaterialTheme.colorScheme.tertiary
-                    },
+            Box {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 10.dp, top = 12.dp, bottom = 12.dp)
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    accent.copy(alpha = 0.08f),
+                                    accent.copy(alpha = 0.70f),
+                                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f),
+                                )
+                            )
+                        )
                 )
-                Text(
-                    text = visuals.elapsedLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 18.dp, top = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ControlStatusPill(
+                            text = visuals.stateLabel.replaceFirstChar { it.titlecase() },
+                            icon = pendingStageIcon(reply.stage),
+                            highlight = accent,
+                        )
+                        Text(
+                            text = visuals.elapsedLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-            Text(
-                text = visuals.title,
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Text(
-                text = visuals.subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = visuals.detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+                    Text(
+                        text = visuals.title,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        text = visuals.subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = visuals.detail,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
 
-            PendingTimeline(visuals = visuals)
-            AnimatedStatusBeam(reply = reply)
+                    PendingTimeline(
+                        visuals = visuals,
+                        activeColor = accent,
+                    )
+                    AnimatedStatusBeam(reply = reply)
 
-            if (reply.text.isNotBlank()) {
-                MessageContent(
-                    text = reply.text,
-                    isOutgoing = false,
-                    onCopyCode = {},
-                )
+                    if (reply.text.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(accent.copy(alpha = 0.12f))
+                        )
+                        MessageContent(
+                            text = reply.text,
+                            isOutgoing = false,
+                            onCopyCode = {},
+                        )
+                    }
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PendingTimeline(visuals: com.example.relaychat.app.PendingReplyVisuals) {
-    Row(
+private fun PendingTimeline(
+    visuals: PendingReplyVisuals,
+    activeColor: Color,
+) {
+    FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         visuals.timeline.forEach { entry ->
             val background = when (entry.status) {
                 PendingTimelineStatus.COMPLETED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                PendingTimelineStatus.ACTIVE -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.16f)
-                PendingTimelineStatus.UPCOMING -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f)
+                PendingTimelineStatus.ACTIVE -> activeColor.copy(alpha = 0.16f)
+                PendingTimelineStatus.UPCOMING -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f)
             }
             val border = when (entry.status) {
                 PendingTimelineStatus.COMPLETED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.26f)
-                PendingTimelineStatus.ACTIVE -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.34f)
-                PendingTimelineStatus.UPCOMING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.34f)
+                PendingTimelineStatus.ACTIVE -> activeColor.copy(alpha = 0.28f)
+                PendingTimelineStatus.UPCOMING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
             }
             Text(
                 text = entry.label,
@@ -899,8 +1173,8 @@ private fun PendingTimeline(visuals: com.example.relaychat.app.PendingReplyVisua
                     .clip(RoundedCornerShape(999.dp))
                     .background(background)
                     .border(1.dp, border, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                style = MaterialTheme.typography.labelMedium,
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
@@ -910,15 +1184,15 @@ private fun PendingTimeline(visuals: com.example.relaychat.app.PendingReplyVisua
 @Composable
 private fun AnimatedStatusBeam(reply: InFlightAssistantReply) {
     val transition = rememberInfiniteTransition(label = "status-beam")
-    val offset by transition.animateFloat(
+    val progress by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = keyframes {
                 durationMillis = when (reply.stage) {
-                    com.example.relaychat.app.InFlightAssistantStage.SEARCHING -> 1_350
-                    com.example.relaychat.app.InFlightAssistantStage.THINKING -> 1_050
-                    com.example.relaychat.app.InFlightAssistantStage.STREAMING -> 850
+                    InFlightAssistantStage.SEARCHING -> 1_800
+                    InFlightAssistantStage.THINKING -> 1_450
+                    InFlightAssistantStage.STREAMING -> 1_100
                 }
                 0f at 0
                 1f at durationMillis
@@ -927,33 +1201,42 @@ private fun AnimatedStatusBeam(reply: InFlightAssistantReply) {
         ),
         label = "status-beam-offset",
     )
+    val beamWidthFraction = 0.24f
+    val accent = pendingStageAccent(reply.stage)
 
-    val accent = when (reply.stage) {
-        com.example.relaychat.app.InFlightAssistantStage.THINKING -> MaterialTheme.colorScheme.primary
-        com.example.relaychat.app.InFlightAssistantStage.SEARCHING -> MaterialTheme.colorScheme.secondary
-        com.example.relaychat.app.InFlightAssistantStage.STREAMING -> MaterialTheme.colorScheme.tertiary
-    }
-
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(10.dp)
+            .height(8.dp)
             .clip(RoundedCornerShape(999.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f)),
     ) {
+        val density = LocalDensity.current
+        val trackWidthPx = with(density) { maxWidth.toPx() }
+        val beamStartOffsetPx = pendingStatusBeamStartOffsetPx(
+            trackWidthPx = trackWidthPx,
+            beamWidthFraction = beamWidthFraction,
+            progress = progress,
+        )
+
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.32f)
-                .height(10.dp)
+                .fillMaxWidth(beamWidthFraction)
+                .height(8.dp)
                 .align(Alignment.CenterStart)
-                .padding(start = (220 * offset).dp)
+                .graphicsLayer {
+                    translationX = beamStartOffsetPx
+                    alpha = if (reply.stage == InFlightAssistantStage.STREAMING) 0.92f else 1f
+                }
                 .clip(RoundedCornerShape(999.dp))
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            accent.copy(alpha = 0.12f),
-                            accent.copy(alpha = 0.78f),
-                            accent.copy(alpha = 0.12f),
+                            Color.Transparent,
+                            accent.copy(alpha = 0.22f),
+                            accent.copy(alpha = 0.76f),
+                            accent.copy(alpha = 0.22f),
+                            Color.Transparent,
                         )
                     )
                 )
@@ -972,11 +1255,15 @@ private fun <T> EnumMenuButton(
     var expanded by rememberSaveable(title) { mutableStateOf(false) }
 
     Box {
-        OutlinedButton(
+        FilledTonalButton(
             onClick = { expanded = true },
-            shape = RoundedCornerShape(999.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+            ),
         ) {
-            Text("$title: $value")
+            Text("$title • $value")
         }
         DropdownMenu(
             expanded = expanded,
@@ -995,13 +1282,130 @@ private fun <T> EnumMenuButton(
     }
 }
 
-private fun buildTranscript(messages: List<ChatMessage>): String = messages.joinToString("\n\n") { message ->
-    val role = if (message.role == ChatRole.USER) "You" else "Assistant"
-    val text = message.text.trim().ifEmpty { "[No text]" }
+@Composable
+private fun HeaderActionPill(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ControlStatusPill(
+    text: String,
+    icon: ImageVector,
+    highlight: Color,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = highlight.copy(alpha = 0.10f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = highlight.copy(alpha = 0.18f),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = highlight,
+            )
+            Text(
+                text = text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun pendingStageAccent(stage: InFlightAssistantStage): Color = when (stage) {
+    InFlightAssistantStage.THINKING -> MaterialTheme.colorScheme.primary
+    InFlightAssistantStage.SEARCHING -> MaterialTheme.colorScheme.secondary
+    InFlightAssistantStage.STREAMING -> MaterialTheme.colorScheme.tertiary
+}
+
+private fun pendingStageIcon(stage: InFlightAssistantStage): ImageVector = when (stage) {
+    InFlightAssistantStage.THINKING -> Icons.Outlined.AutoAwesome
+    InFlightAssistantStage.SEARCHING -> Icons.Outlined.Public
+    InFlightAssistantStage.STREAMING -> Icons.Outlined.ChatBubbleOutline
+}
+
+private fun messageMetaLine(message: ChatMessage): String {
+    val parts = mutableListOf(timeText(message.createdAt))
+    if (message.role == ChatRole.ASSISTANT) {
+        message.model?.takeIf { it.isNotBlank() }?.let(parts::add)
+        message.requestId?.takeIf { it.isNotBlank() }?.let { parts += compactRequestId(it) }
+    }
+    return parts.joinToString(" • ")
+}
+
+private fun compactRequestId(requestId: String): String {
+    val compact = if (requestId.length <= 10) {
+        requestId
+    } else {
+        "${requestId.take(4)}…${requestId.takeLast(4)}"
+    }
+    return "req $compact"
+}
+
+private fun buildTranscript(
+    messages: List<ChatMessage>,
+    context: android.content.Context,
+): String = messages.joinToString("\n\n") { message ->
+    val role = if (message.role == ChatRole.USER) {
+        context.getString(R.string.transcript_role_user)
+    } else {
+        context.getString(R.string.transcript_role_assistant)
+    }
+    val text = message.text.trim().ifEmpty { context.getString(R.string.transcript_empty_text) }
     val attachmentNote = if (message.attachments.isEmpty()) {
         ""
     } else {
-        "\n[Attachments: ${message.attachments.size} image${if (message.attachments.size == 1) "" else "s"}]"
+        "\n" + context.resources.getQuantityString(
+            R.plurals.transcript_attachment_count,
+            message.attachments.size,
+            message.attachments.size,
+        )
     }
     "$role:\n$text$attachmentNote"
 }
@@ -1010,3 +1414,4 @@ private val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:m
 
 private fun timeText(epochMillis: Long): String =
     timeFormatter.format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()))
+

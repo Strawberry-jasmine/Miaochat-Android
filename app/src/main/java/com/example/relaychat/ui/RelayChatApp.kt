@@ -22,21 +22,21 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.relaychat.app.RelayChatViewModel
+import com.example.relaychat.R
 import com.example.relaychat.ui.chat.ChatScreen
 import com.example.relaychat.ui.components.RelayChatBackdrop
 import com.example.relaychat.ui.components.RelayGlassCard
-import com.example.relaychat.ui.history.HistorySheet
 import com.example.relaychat.ui.settings.SettingsScreen
 import com.example.relaychat.ui.theme.RelayChatTheme
 
@@ -47,7 +47,6 @@ fun RelayChatApp(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val clipboardManager = LocalClipboardManager.current
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
-    var historyVisible by rememberSaveable { mutableStateOf(false) }
 
     RelayChatTheme(themeMode = uiState.settings.themeMode) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -82,7 +81,7 @@ fun RelayChatApp(
                                     selected = selectedTab == 0,
                                     onClick = { selectedTab = 0 },
                                     icon = { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null) },
-                                    label = { Text("Chat") },
+                                    label = { Text(stringResource(R.string.nav_chat)) },
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.primary,
                                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -95,7 +94,7 @@ fun RelayChatApp(
                                     selected = selectedTab == 1,
                                     onClick = { selectedTab = 1 },
                                     icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
-                                    label = { Text("Settings") },
+                                    label = { Text(stringResource(R.string.nav_settings)) },
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.primary,
                                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -113,7 +112,6 @@ fun RelayChatApp(
                     0 -> ChatScreen(
                         uiState = uiState,
                         viewModel = viewModel,
-                        onShowHistory = { historyVisible = true },
                         onCopyTranscript = { transcript ->
                             clipboardManager.setText(AnnotatedString(transcript))
                         },
@@ -129,14 +127,6 @@ fun RelayChatApp(
             }
         }
 
-        if (historyVisible) {
-            HistorySheet(
-                uiState = uiState,
-                viewModel = viewModel,
-                onDismiss = { historyVisible = false },
-            )
-        }
-
         uiState.errorMessage?.let { message ->
             AlertDialog(
                 onDismissRequest = viewModel::dismissError,
@@ -149,11 +139,11 @@ fun RelayChatApp(
                 },
                 containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                 shape = RoundedCornerShape(28.dp),
-                title = { Text("Request didn't finish") },
+                title = { Text(stringResource(R.string.error_request_failed_title)) },
                 text = { Text(message) },
                 confirmButton = {
                     TextButton(onClick = viewModel::dismissError) {
-                        Text("Dismiss")
+                        Text(stringResource(R.string.action_dismiss))
                     }
                 },
             )

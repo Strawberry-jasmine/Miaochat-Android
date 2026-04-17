@@ -23,11 +23,21 @@ internal data class HistorySection(
     val items: List<HistoryThreadItem>,
 )
 
+internal data class HistoryTextSet(
+    val matchesTitle: String = "Matches",
+    val currentTitle: String = "Current",
+    val todayTitle: String = "Today",
+    val thisWeekTitle: String = "This Week",
+    val earlierTitle: String = "Earlier",
+    val emptyThreadPreview: String = "Empty thread",
+)
+
 internal fun buildHistorySections(
     threads: List<ChatThread>,
     selectedThreadId: String?,
     query: String,
     filter: HistoryQuickFilter,
+    textSet: HistoryTextSet = HistoryTextSet(),
     nowMs: Long = System.currentTimeMillis(),
 ): List<HistorySection> {
     val normalizedQuery = query.trim().lowercase()
@@ -42,6 +52,7 @@ internal fun buildHistorySections(
                 thread = thread,
                 normalizedQuery = normalizedQuery,
                 isSelected = thread.id == selectedThreadId,
+                textSet = textSet,
             )
         }
 
@@ -49,7 +60,7 @@ internal fun buildHistorySections(
         return preparedItems
             .sortedWith(compareByDescending<HistoryThreadItem> { it.isSelected }.thenByDescending { it.thread.updatedAt })
             .takeIf { it.isNotEmpty() }
-            ?.let { listOf(HistorySection(title = "Matches", items = it)) }
+            ?.let { listOf(HistorySection(title = textSet.matchesTitle, items = it)) }
             .orEmpty()
     }
 
@@ -59,7 +70,7 @@ internal fun buildHistorySections(
 
     if (currentItem != null) {
         sections += HistorySection(
-            title = "Current",
+            title = textSet.currentTitle,
             items = listOf(currentItem),
         )
     }
@@ -69,7 +80,7 @@ internal fun buildHistorySections(
             recencyBucket(item.thread.updatedAt, nowMs) == bucket
         }
         if (bucketItems.isNotEmpty()) {
-            sections += HistorySection(title = bucket.title, items = bucketItems)
+            sections += HistorySection(title = bucket.title(textSet), items = bucketItems)
         }
     }
 
@@ -80,11 +91,12 @@ private fun createHistoryThreadItem(
     thread: ChatThread,
     normalizedQuery: String,
     isSelected: Boolean,
+    textSet: HistoryTextSet,
 ): HistoryThreadItem? {
     if (normalizedQuery.isBlank()) {
         return HistoryThreadItem(
             thread = thread,
-            preview = defaultPreview(thread),
+            preview = defaultPreview(thread, textSet),
             matchCount = 0,
             isSelected = isSelected,
         )
@@ -100,8 +112,8 @@ private fun createHistoryThreadItem(
     }
 
     val preview = matchingMessages.lastOrNull()?.text?.let { text ->
-        buildSnippet(text = text, normalizedQuery = normalizedQuery)
-    } ?: defaultPreview(thread)
+        buildSnippet(text = text, normalizedQuery = normalizedQuery, textSet = textSet)
+    } ?: defaultPreview(thread, textSet)
 
     return HistoryThreadItem(
         thread = thread,
@@ -111,18 +123,21 @@ private fun createHistoryThreadItem(
     )
 }
 
-private fun defaultPreview(thread: ChatThread): String =
-    thread.messages.lastOrNull()?.text?.trim()?.takeIf { it.isNotEmpty() }
-        ?: "Empty thread"
+private fun defaultPreview(
+    thread: ChatThread,
+    textSet: HistoryTextSet,
+): String = thread.messages.lastOrNull()?.text?.trim()?.takeIf { it.isNotEmpty() }
+    ?: textSet.emptyThreadPreview
 
 private fun buildSnippet(
     text: String,
     normalizedQuery: String,
+    textSet: HistoryTextSet,
     maxLength: Int = 92,
 ): String {
     val trimmed = text.trim()
     if (trimmed.isEmpty()) {
-        return "Empty thread"
+        return textSet.emptyThreadPreview
     }
 
     val normalized = trimmed.lowercase()
@@ -150,10 +165,16 @@ private fun matchesQuickFilter(
     HistoryQuickFilter.EARLIER -> recencyBucket(thread.updatedAt, nowMs) == RecencyBucket.EARLIER
 }
 
-private enum class RecencyBucket(val title: String) {
-    TODAY("Today"),
-    THIS_WEEK("This Week"),
-    EARLIER("Earlier"),
+private enum class RecencyBucket {
+    TODAY,
+    THIS_WEEK,
+    EARLIER,
+}
+
+private fun RecencyBucket.title(textSet: HistoryTextSet): String = when (this) {
+    RecencyBucket.TODAY -> textSet.todayTitle
+    RecencyBucket.THIS_WEEK -> textSet.thisWeekTitle
+    RecencyBucket.EARLIER -> textSet.earlierTitle
 }
 
 private fun recencyBucket(

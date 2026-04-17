@@ -21,7 +21,7 @@ class CodexConfigImporterTest {
 
             [model_providers.intelalloc]
             name = "intelalloc"
-            base_url = "https://www.intelalloc.com/v1/responses"
+            base_url = "https://backend.intelalloc.com/v1/responses"
             wire_api = "responses"
             api_key_env = "INTELALLOC_API_KEY"
             """.trimIndent()
@@ -29,7 +29,7 @@ class CodexConfigImporterTest {
 
         assertThat(result.settings.provider.displayName).isEqualTo("intelalloc")
         assertThat(result.settings.provider.apiStyle).isEqualTo(ProviderApiStyle.RESPONSES)
-        assertThat(result.settings.provider.baseUrl).isEqualTo("https://www.intelalloc.com")
+        assertThat(result.settings.provider.baseUrl).isEqualTo("https://backend.intelalloc.com")
         assertThat(result.settings.provider.path).isEqualTo("/responses")
         assertThat(result.settings.provider.supportsWebSearch).isTrue()
         assertThat(result.settings.defaultControls.webSearchEnabled).isTrue()
@@ -46,7 +46,7 @@ class CodexConfigImporterTest {
 
             [model_providers.intelalloc]
             name = "intelalloc"
-            base_url = "https://www.intelalloc.com"
+            base_url = "https://backend.intelalloc.com"
             wire_api = "responses"
             """.trimIndent()
         )

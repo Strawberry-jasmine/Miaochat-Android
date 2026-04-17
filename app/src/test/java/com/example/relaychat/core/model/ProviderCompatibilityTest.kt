@@ -5,6 +5,12 @@ import org.junit.Test
 
 class ProviderCompatibilityTest {
     @Test
+    fun intelallocPresetUsesBackendBaseUrl() {
+        assertThat(ProviderPreset.INTELALLOC_CODEX.profile.baseUrl)
+            .isEqualTo("https://backend.intelalloc.com")
+    }
+
+    @Test
     fun keepsSavedIntelallocWebSearchCapabilityWhenEnabled() {
         val settings = AppSettings(
             provider = ProviderPreset.INTELALLOC_CODEX.profile.copy(

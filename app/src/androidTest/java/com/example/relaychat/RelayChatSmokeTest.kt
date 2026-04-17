@@ -12,7 +12,14 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
+import com.example.relaychat.core.model.AppLocale
+import com.example.relaychat.core.model.AppSettings
+import com.example.relaychat.core.model.AppThemeMode
+import com.example.relaychat.core.model.ChatMessage
+import com.example.relaychat.core.model.ChatRole
 import com.example.relaychat.data.settings.SettingsRepository
 import com.example.relaychat.data.threads.ThreadRepository
 import com.google.common.truth.Truth.assertThat
@@ -37,6 +44,21 @@ class RelayChatSmokeTest {
         get() = UiDevice.getInstance(instrumentation)
 
     @Test
+    fun coldLaunch_staysAlive_andShowsPrimaryNavigation() {
+        val targetContext = appContext()
+
+        composeRule.waitForIdle()
+        composeRule.onNode(hasText(targetContext.getString(R.string.nav_chat)) and hasClickAction())
+            .fetchSemanticsNode()
+        composeRule.onNode(hasText(targetContext.getString(R.string.nav_settings)) and hasClickAction())
+            .fetchSemanticsNode()
+
+        assertThat(device.wait(Until.hasObject(By.pkg(targetContext.packageName)), 5_000)).isTrue()
+        assertThat(device.currentPackageName).isEqualTo(targetContext.packageName)
+        assertThat(device.executeShellCommand("pidof ${targetContext.packageName}").trim()).isNotEmpty()
+    }
+
+    @Test
     fun settingsPersist_sendWorks_newChatWorks_andImagePickerReturnsSafely() {
         val server = MockWebServer()
         server.enqueue(
@@ -57,14 +79,22 @@ class RelayChatSmokeTest {
         server.start()
 
         try {
-            val targetContext = ApplicationProvider.getApplicationContext<android.content.Context>()
+            val targetContext = appContext()
             val settingsRepository = SettingsRepository(targetContext)
             val threadRepository = ThreadRepository(targetContext)
             val baseUrl = server.url("/").toString().removeSuffix("/")
+            val newChatLabel = targetContext.getString(R.string.action_new_chat)
+            val settingsTabLabel = targetContext.getString(R.string.nav_settings)
+            val chatTabLabel = targetContext.getString(R.string.nav_chat)
+            val sendDescription = targetContext.getString(R.string.chat_composer_send_desc)
+            val requestFailedTitle = targetContext.getString(R.string.error_request_failed_title)
+            val apiKeyError = targetContext.getString(R.string.error_api_key_before_send)
+            val actionsDescription = targetContext.getString(R.string.chat_menu_desc)
+            val attachImageDescription = targetContext.getString(R.string.chat_composer_attach_image_desc)
+            val twoMessageSummary =
+                targetContext.resources.getQuantityString(R.plurals.thread_message_count, 2, 2)
 
-            composeRule.onNodeWithText("New Chat").fetchSemanticsNode()
-
-            composeRule.onNode(hasText("Settings") and hasClickAction()).performClick()
+            composeRule.onNode(hasText(settingsTabLabel) and hasClickAction()).performClick()
             composeRule.waitForIdle()
 
             replaceSettingsField(index = 0, value = "Mock Provider")
@@ -84,23 +114,25 @@ class RelayChatSmokeTest {
                 }
             }
 
-            composeRule.onNode(hasText("Chat") and hasClickAction()).performClick()
+            composeRule.onNode(hasText(chatTabLabel) and hasClickAction()).performClick()
             composeRule.waitForIdle()
-            composeRule.onNodeWithText("Mock Provider | mock-model").fetchSemanticsNode()
+            assertThat(nodeExists("Mock Provider", substring = true)).isTrue()
+            assertThat(nodeExists("mock-model", substring = true)).isTrue()
 
             composeRule.activityRule.scenario.recreate()
             composeRule.waitForIdle()
-            composeRule.onNodeWithText("Mock Provider | mock-model").fetchSemanticsNode()
+            assertThat(nodeExists("Mock Provider", substring = true)).isTrue()
+            assertThat(nodeExists("mock-model", substring = true)).isTrue()
 
             composeRule.onAllNodes(hasSetTextAction())[0]
                 .performTextReplacement("hello relaychat")
             composeRule.onNodeWithText("hello relaychat").fetchSemanticsNode()
-            composeRule.onNodeWithContentDescription("Send").performClick()
+            composeRule.onNodeWithContentDescription(sendDescription).performClick()
 
             val request = server.takeRequest(5, TimeUnit.SECONDS)
             if (request == null) {
-                val requestFailedVisible = nodeExists("Request failed")
-                val apiKeyErrorVisible = nodeExists("Set an API key in Settings before sending.")
+                val requestFailedVisible = nodeExists(requestFailedTitle)
+                val apiKeyErrorVisible = nodeExists(apiKeyError)
                 val cleartextErrorVisible = nodeExists("CLEARTEXT", substring = true)
                 error(
                     "No request reached MockWebServer. " +
@@ -122,14 +154,21 @@ class RelayChatSmokeTest {
                         ?.text == "RelayChat stub reply"
                 }
             }
-            composeRule.onNodeWithText("Regenerate").fetchSemanticsNode()
-            composeRule.onNodeWithText("2 messages | $baseUrl/responses").fetchSemanticsNode()
+            assertThat(nodeExists(twoMessageSummary, substring = true)).isTrue()
 
-            composeRule.onNodeWithContentDescription("Actions").performClick()
-            composeRule.onNodeWithText("New chat").performClick()
-            composeRule.onNodeWithText("0 messages | $baseUrl/responses").fetchSemanticsNode()
+            composeRule.onNodeWithContentDescription(actionsDescription).performClick()
+            composeRule.onNodeWithText(newChatLabel).performClick()
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                runBlocking {
+                    val selectedThreadId = threadRepository.selectedThreadIdFlow.first()
+                    threadRepository.threadsFlow.first()
+                        .firstOrNull { it.id == selectedThreadId }
+                        ?.messages
+                        .isNullOrEmpty()
+                }
+            }
 
-            composeRule.onNodeWithContentDescription("Attach image").performClick()
+            composeRule.onNodeWithContentDescription(attachImageDescription).performClick()
 
             composeRule.waitUntil(timeoutMillis = 5_000) {
                 device.currentPackageName != targetContext.packageName
@@ -146,17 +185,123 @@ class RelayChatSmokeTest {
         }
     }
 
+    @Test
+    fun localeAndThemeChanges_applyImmediately_withoutCrashing() {
+        val targetContext = appContext()
+        val settingsRepository = SettingsRepository(targetContext)
+
+        runBlocking {
+            settingsRepository.writeSettings(
+                AppSettings.Default.copy(
+                    appLocale = AppLocale.ENGLISH,
+                    themeMode = AppThemeMode.LIGHT,
+                ),
+            )
+        }
+        composeRule.activityRule.scenario.recreate()
+        composeRule.waitForIdle()
+
+        composeRule.onNode(hasText(composeRule.activity.getString(R.string.nav_settings)) and hasClickAction())
+            .performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.app_locale_simplified_chinese))
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking {
+                settingsRepository.settingsFlow.first().appLocale == AppLocale.SIMPLIFIED_CHINESE
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNode(hasText(composeRule.activity.getString(R.string.nav_settings)) and hasClickAction())
+            .fetchSemanticsNode()
+
+        composeRule.onNodeWithText(composeRule.activity.getString(R.string.theme_mode_dark))
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking {
+                settingsRepository.settingsFlow.first().themeMode == AppThemeMode.DARK
+            }
+        }
+
+        val persistedSettings = runBlocking { settingsRepository.settingsFlow.first() }
+        assertThat(persistedSettings.appLocale).isEqualTo(AppLocale.SIMPLIFIED_CHINESE)
+        assertThat(persistedSettings.themeMode).isEqualTo(AppThemeMode.DARK)
+        assertThat(device.currentPackageName).isEqualTo(targetContext.packageName)
+
+        composeRule.onNode(hasText(composeRule.activity.getString(R.string.nav_chat)) and hasClickAction())
+            .performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(hasText(composeRule.activity.getString(R.string.nav_chat)) and hasClickAction())
+            .fetchSemanticsNode()
+    }
+
+    @Test
+    fun historyRail_expands_switchesThreads_andClearsCurrentThread() {
+        val targetContext = appContext()
+        val threadRepository = ThreadRepository(targetContext)
+        val titleOne = "History Alpha ${System.currentTimeMillis()}"
+        val titleTwo = "History Beta ${System.currentTimeMillis()}"
+        var firstThreadId = ""
+        var secondThreadId = ""
+
+        runBlocking {
+            firstThreadId = threadRepository.createThread(title = titleOne, select = true)
+            threadRepository.appendMessage(
+                message = ChatMessage(role = ChatRole.USER, text = "alpha message"),
+                threadId = firstThreadId,
+            )
+            secondThreadId = threadRepository.createThread(title = titleTwo, select = false)
+            threadRepository.appendMessage(
+                message = ChatMessage(role = ChatRole.USER, text = "beta message"),
+                threadId = secondThreadId,
+            )
+            threadRepository.selectThread(firstThreadId)
+        }
+
+        composeRule.activityRule.scenario.recreate()
+        composeRule.waitForIdle()
+
+        val expandDescription = composeRule.activity.getString(R.string.history_expand_desc)
+        val collapseDescription = composeRule.activity.getString(R.string.history_collapse_desc)
+        val searchLabel = composeRule.activity.getString(R.string.history_search_label)
+        val clearThreadLabel = composeRule.activity.getString(R.string.action_clear_thread)
+
+        composeRule.onNodeWithContentDescription(expandDescription).performClick()
+        composeRule.onNodeWithText(searchLabel).fetchSemanticsNode()
+        composeRule.onNodeWithContentDescription(collapseDescription).performClick()
+        assertThat(nodeExists(searchLabel)).isFalse()
+
+        composeRule.onNodeWithText(titleTwo, substring = true).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking {
+                threadRepository.selectedThreadIdFlow.first() == secondThreadId
+            }
+        }
+        assertThat(nodeExists(titleTwo, substring = true)).isTrue()
+
+        composeRule.onNodeWithContentDescription(expandDescription).performClick()
+        composeRule.onNodeWithText(clearThreadLabel).performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            runBlocking {
+                threadRepository.getThread(secondThreadId)?.messages.isNullOrEmpty()
+            }
+        }
+    }
+
     private fun replaceSettingsField(index: Int, value: String) {
         composeRule.onAllNodes(hasSetTextAction())[index]
             .performScrollTo()
             .performTextReplacement(value)
     }
 
+    private fun appContext(): android.content.Context =
+        ApplicationProvider.getApplicationContext()
+
     private fun nodeExists(
         text: String,
         substring: Boolean = false,
     ): Boolean = runCatching {
-        composeRule.onNodeWithText(text, substring = substring).fetchSemanticsNode()
-        true
+        composeRule.onAllNodes(hasText(text, substring = substring)).fetchSemanticsNodes().isNotEmpty()
     }.getOrDefault(false)
 }

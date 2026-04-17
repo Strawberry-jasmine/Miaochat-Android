@@ -111,6 +111,36 @@ class HistoryPresentationTest {
         assertThat(sections.single().items.map { it.thread.id }).containsExactly("today")
     }
 
+    @Test
+    fun buildSectionsUsesInjectedLocalizedLabelsAndEmptyPreview() {
+        val localizedLabels = HistoryTextSet(
+            matchesTitle = "\u5339\u914d\u7ed3\u679c",
+            currentTitle = "\u5f53\u524d\u4f1a\u8bdd",
+            todayTitle = "\u4eca\u5929",
+            thisWeekTitle = "\u672c\u5468",
+            earlierTitle = "\u66f4\u65e9",
+            emptyThreadPreview = "\u7a7a\u4f1a\u8bdd",
+        )
+        val emptyCurrent = ChatThread(
+            id = "empty",
+            title = "\u5f53\u524d",
+            updatedAt = 1_750_000_000_000L,
+            messages = emptyList(),
+        )
+
+        val sections = buildHistorySections(
+            threads = listOf(emptyCurrent),
+            selectedThreadId = emptyCurrent.id,
+            query = "",
+            filter = HistoryQuickFilter.ALL,
+            textSet = localizedLabels,
+            nowMs = 1_750_000_000_000L,
+        )
+
+        assertThat(sections.single().title).isEqualTo("\u5f53\u524d\u4f1a\u8bdd")
+        assertThat(sections.single().items.single().preview).isEqualTo("\u7a7a\u4f1a\u8bdd")
+    }
+
     private fun thread(
         id: String,
         title: String,

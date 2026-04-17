@@ -1,4 +1,286 @@
 <resources>
     <string name="app_name">Miaochat</string>
-    <string name="chat_empty_state_body">%1$s keeps thread history locally. Use History to revisit earlier sessions, branch from any message, or keep multiple work streams alive without losing context.</string>
+
+    <string name="nav_chat">Chat</string>
+    <string name="nav_settings">Settings</string>
+
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_import">Import</string>
+    <string name="action_open">Open</string>
+    <string name="action_duplicate">Duplicate</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_clear_thread">Clear Thread</string>
+    <string name="action_new_chat">New Chat</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_copy_transcript">Copy Transcript</string>
+    <string name="action_regenerate">Regenerate</string>
+    <string name="action_regenerate_last_reply">Regenerate Last Reply</string>
+    <string name="action_use_as_draft">Use as Draft</string>
+    <string name="action_branch_thread">Branch Thread</string>
+
+    <string name="status_enabled">Enabled</string>
+    <string name="status_disabled">Disabled</string>
+
+    <string name="thread_new_chat">New Chat</string>
+    <string name="thread_copy_suffix"> Copy</string>
+    <string name="thread_branch_suffix"> Branch</string>
+    <string name="thread_rename_title">Rename Thread</string>
+    <string name="error_request_failed_title">Request Did Not Finish</string>
+    <string name="error_request_failed_generic">Request failed.</string>
+    <string name="error_request_in_progress">Another reply is already in progress.</string>
+    <string name="error_no_active_thread">No active thread is available.</string>
+    <string name="error_provider_image_disabled">The current provider profile has image input disabled.</string>
+    <string name="error_api_key_before_send">Set an API key in Settings before sending.</string>
+    <string name="error_no_reply_to_regenerate">There is no assistant reply to regenerate.</string>
+    <string name="error_api_key_before_regenerate">Set an API key in Settings before regenerating.</string>
+    <string name="error_import_failed">Import failed. Check the config format and try again.</string>
+
+    <string name="app_locale_system">Follow System</string>
+    <string name="app_locale_english">English</string>
+    <string name="app_locale_simplified_chinese">Simplified Chinese</string>
+
+    <string name="theme_mode_system">Follow System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+
+    <string name="provider_api_style_responses">Responses API</string>
+    <string name="provider_api_style_chat_completions">Chat Completions API</string>
+
+    <string name="reasoning_none">None</string>
+    <string name="reasoning_minimal">Minimal</string>
+    <string name="reasoning_low">Low</string>
+    <string name="reasoning_medium">Medium</string>
+    <string name="reasoning_high">High</string>
+    <string name="reasoning_xhigh">Very High</string>
+
+    <string name="verbosity_low">Low</string>
+    <string name="verbosity_medium">Medium</string>
+    <string name="verbosity_high">High</string>
+
+    <string name="tool_choice_auto">Auto</string>
+    <string name="tool_choice_none">None</string>
+    <string name="tool_choice_required">Required</string>
+
+    <string name="response_format_text">Text</string>
+    <string name="response_format_json_object">JSON Object</string>
+    <string name="response_format_json_schema">JSON Schema</string>
+
+    <string name="provider_preset_intelalloc_title">intelalloc Codex</string>
+    <string name="provider_preset_intelalloc_detail">Preset for the intelalloc Codex-style Responses endpoint.</string>
+    <string name="provider_preset_openai_responses_title">OpenAI Responses</string>
+    <string name="provider_preset_openai_responses_detail">Best for reasoning, verbosity, web search, response storage, and structured outputs.</string>
+    <string name="provider_preset_openai_chat_title">OpenAI Chat</string>
+    <string name="provider_preset_openai_chat_detail">Fallback for providers that only expose the older chat endpoint.</string>
+    <string name="provider_preset_openrouter_title">OpenRouter Compatible</string>
+    <string name="provider_preset_openrouter_detail">A practical preset for OpenAI-style third-party routing endpoints.</string>
+    <string name="provider_preset_lm_studio_title">LM Studio Local</string>
+    <string name="provider_preset_lm_studio_detail">Use a local OpenAI-compatible server on the same network.</string>
+    <string name="provider_preset_custom_title">Custom</string>
+    <string name="provider_preset_custom_detail">Start from your own endpoint and tune everything manually.</string>
+
+    <string name="tuning_preset_precise_title">Precise</string>
+    <string name="tuning_preset_precise_detail">Lower randomness and keep answers steady.</string>
+    <string name="tuning_preset_balanced_title">Balanced</string>
+    <string name="tuning_preset_balanced_detail">General-purpose defaults for everyday chats.</string>
+    <string name="tuning_preset_deep_title">Deep</string>
+    <string name="tuning_preset_deep_detail">Higher reasoning with live web access when available.</string>
+
+    <string name="pending_title_thinking">Thinking</string>
+    <string name="pending_title_searching">Searching the Web</string>
+    <string name="pending_title_streaming">Streaming Reply</string>
+    <string name="pending_subtitle_thinking">Preparing the request and warming up the first tokens.</string>
+    <string name="pending_subtitle_post_search_thinking">Synthesizing the gathered sources into a final answer.</string>
+    <string name="pending_subtitle_searching">Gathering live sources, ranking them, and deciding what to cite.</string>
+    <string name="pending_subtitle_searching_slow">Still gathering live sources. On intelalloc, live search can take longer before the first answer appears.</string>
+    <string name="pending_subtitle_streaming_blank">Drafting the opening lines in real time.</string>
+    <string name="pending_subtitle_streaming">The answer is arriving live. Auto-scroll stays pinned to the newest text.</string>
+    <string name="pending_state_thinking">thinking</string>
+    <string name="pending_state_searching">searching</string>
+    <string name="pending_state_streaming">streaming</string>
+    <string name="pending_timeline_thinking">Think</string>
+    <string name="pending_timeline_searching">Search</string>
+    <string name="pending_timeline_answer">Answer</string>
+    <string name="pending_detail_thinking">Thinking through the request</string>
+    <string name="pending_detail_reasoning">Reasoning through the request</string>
+    <string name="pending_detail_searching">Running live web search</string>
+    <string name="pending_detail_drafting">Drafting reply</string>
+
+    <string name="chat_header_subtitle_empty">A fresh thread with room for your next prompt.</string>
+    <string name="chat_header_subtitle_reply_in_progress">%1$d messages - reply in progress</string>
+    <string name="chat_header_subtitle_message_one">1 message in this thread</string>
+    <string name="chat_header_subtitle_message_many">%1$d messages in this thread</string>
+    <string name="chat_empty_state_title">Start with a clean thread</string>
+    <string name="chat_empty_state_body">%1$s keeps thread history locally. Use the thread rail to revisit earlier sessions, branch from any message, or keep multiple workstreams alive without losing context.</string>
+    <string name="chat_menu_desc">Thread actions</string>
+    <string name="chat_note_draft_user">Draft loaded from an earlier user message</string>
+    <string name="chat_note_draft_assistant">Draft loaded from an assistant reply</string>
+    <string name="chat_note_regenerating">Regenerating the last reply</string>
+    <string name="chat_controls_reasoning">Reasoning</string>
+    <string name="chat_controls_verbosity">Verbosity</string>
+    <string name="chat_controls_tune">Tune</string>
+    <string name="chat_controls_less">Less</string>
+    <string name="chat_controls_custom">Custom</string>
+    <string name="chat_controls_web_on">Web On</string>
+    <string name="chat_controls_web_off">Web Off</string>
+    <string name="chat_controls_web_unavailable">No Web</string>
+    <string name="chat_controls_thread_fresh">Fresh thread</string>
+    <string name="chat_busy_default_detail">A reply is still running in the background.</string>
+    <string name="chat_composer_attachment_title">Image Attached</string>
+    <string name="chat_composer_attach_image_desc">Attach image</string>
+    <string name="chat_composer_placeholder_busy">Thinking through the reply...</string>
+    <string name="chat_composer_placeholder_idle">Message Miaochat</string>
+    <string name="chat_composer_send_desc">Send</string>
+    <string name="chat_composer_thinking_button">Thinking</string>
+
+    <string name="history_rail_eyebrow">Threads</string>
+    <string name="history_rail_title">Recent Threads</string>
+    <string name="history_search_label">Search Threads</string>
+    <string name="history_section_matches">Matches</string>
+    <string name="history_section_current">Current</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_today">Today</string>
+    <string name="history_filter_this_week">This Week</string>
+    <string name="history_filter_earlier">Earlier</string>
+    <string name="history_empty_thread_preview">Empty thread</string>
+    <string name="history_empty_title">No saved threads yet</string>
+    <string name="history_empty_body">Start a new chat and your thread history will appear here.</string>
+    <string name="history_no_match_title">No matching threads</string>
+    <string name="history_no_match_body">Try a different keyword or widen the filter.</string>
+    <string name="history_badge_current">Current</string>
+    <string name="history_badge_replying">Replying</string>
+    <string name="history_expand_desc">Expand thread rail</string>
+    <string name="history_collapse_desc">Collapse thread rail</string>
+    <string name="history_more_actions_desc">More thread actions</string>
+    <string name="history_current_thread_actions_title">Current thread</string>
+
+    <string name="settings_configuration_eyebrow">Configuration</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_description">Switch the app language instantly and keep it for the next launch.</string>
+    <string name="settings_theme_title">Color Mode</string>
+    <string name="settings_theme_description">Theme changes apply immediately across chat, thread history, settings, cards, and controls. Follow System tracks Android light and dark mode changes.</string>
+    <string name="settings_quick_setup_title">Quick Setup</string>
+    <string name="settings_import_codex_config">Import Codex Config</string>
+    <string name="settings_use_intelalloc_preset">Use intelalloc Preset</string>
+    <string name="settings_use_openai_responses_preset">Use OpenAI Responses Preset</string>
+    <string name="settings_preset_title">Preset</string>
+    <string name="settings_provider_preset_label">Provider Preset</string>
+    <string name="settings_quality_presets_title">Quality Presets</string>
+    <string name="settings_endpoint_title">Endpoint</string>
+    <string name="settings_api_style_label">API Style</string>
+    <string name="settings_display_name_label">Display Name</string>
+    <string name="settings_base_url_label">Base URL</string>
+    <string name="settings_path_label">Path</string>
+    <string name="settings_api_key_label">API Key</string>
+    <string name="settings_model_label">Model</string>
+    <string name="settings_instructions_title">Instructions</string>
+    <string name="settings_instructions_label">Instructions / System Prompt</string>
+    <string name="settings_default_controls_title">Default Chat Controls</string>
+    <string name="settings_reasoning_label">Reasoning</string>
+    <string name="settings_verbosity_label">Verbosity</string>
+    <string name="settings_web_search_by_default">Enable Web Search by Default</string>
+    <string name="settings_response_storage">Store Responses on the Provider Side</string>
+    <string name="settings_tool_choice_label">Tool Choice</string>
+    <string name="settings_sampling_title">Sampling and Determinism</string>
+    <string name="settings_enable_temperature">Enable Temperature</string>
+    <string name="settings_temperature_label">Temperature</string>
+    <string name="settings_enable_top_p">Enable Top P</string>
+    <string name="settings_top_p_label">Top P</string>
+    <string name="settings_enable_max_output_tokens">Limit Max Output Tokens</string>
+    <string name="settings_max_output_tokens_label">Max Output Tokens</string>
+    <string name="settings_enable_seed">Enable Seed</string>
+    <string name="settings_seed_label">Seed</string>
+    <string name="settings_structured_outputs_title">Structured Outputs</string>
+    <string name="settings_response_format_label">Response Format</string>
+    <string name="settings_schema_name_label">Schema Name</string>
+    <string name="settings_schema_description_label">Schema Description</string>
+    <string name="settings_schema_strict">Strict Schema</string>
+    <string name="settings_json_schema_label">JSON Schema</string>
+    <string name="settings_capabilities_title">Capabilities</string>
+    <string name="settings_supports_image_input">Supports Image Input</string>
+    <string name="settings_supports_web_search">Supports Web Search</string>
+    <string name="settings_supports_streaming">Supports Streaming</string>
+    <string name="settings_supports_verbosity">Supports Verbosity</string>
+    <string name="settings_supports_structured_outputs">Supports Structured Outputs</string>
+    <string name="settings_compat_mapping_title">Compatibility Mapping</string>
+    <string name="settings_reasoning_path_label">Reasoning Path</string>
+    <string name="settings_verbosity_path_label">Verbosity Path</string>
+    <string name="settings_web_search_path_label">Web Search Path</string>
+    <string name="settings_web_enabled_json_label">Web Enabled JSON</string>
+    <string name="settings_web_disabled_json_label">Web Disabled JSON</string>
+    <string name="settings_advanced_title">Advanced</string>
+    <string name="settings_extra_headers_label">Extra Headers (one per line)</string>
+    <string name="settings_extra_body_json_label">Extra Body JSON Object</string>
+    <string name="settings_notes_title">Notes</string>
+    <string name="settings_notes_body_one">API keys are stored with Android Keystore-backed encryption. Responses API is the preferred path for reasoning, verbosity, previous_response_id chaining, web search, response storage, and structured outputs.</string>
+    <string name="settings_notes_body_two">For generic compatible endpoints, leave unsupported mappings blank and override edge cases with Extra Body JSON.</string>
+    <string name="settings_configuration_summary_body">Chat, threads, and settings share the same live configuration summary, so it is obvious which provider and controls are active before you send.</string>
+    <string name="settings_key_missing">API key missing</string>
+    <string name="settings_key_stored">API key stored</string>
+    <string name="settings_summary_reasoning">Reasoning %1$s</string>
+    <string name="settings_summary_theme">Theme %1$s</string>
+    <string name="settings_last_imported_title">Last Imported Config</string>
+    <string name="settings_import_dialog_title">Import Codex Config</string>
+    <string name="settings_import_dialog_body">Paste a Codex CLI style config. The importer recognizes fields like model_provider, model, network_access, and [model_providers.&lt;name&gt;].</string>
+    <string name="settings_provider_label">Provider</string>
+    <string name="settings_model_short_label">Model</string>
+    <string name="settings_endpoint_short_label">Endpoint</string>
+    <string name="settings_reasoning_short_label">Reasoning</string>
+    <string name="settings_verbosity_short_label">Verbosity</string>
+    <string name="settings_web_search_short_label">Web Search</string>
+    <string name="settings_provider_storage_short_label">Provider Storage</string>
+    <string name="settings_api_key_env_label">API Key Env</string>
+
+    <string name="status_provider_preset_applied">%1$s preset applied.</string>
+    <string name="status_provider_preset_applied_with_key">%1$s preset applied. Add or confirm the API key before sending.</string>
+    <string name="status_quality_preset_applied">%1$s preset applied to the default controls.</string>
+    <string name="status_config_imported">%1$s config imported. Add the API key if needed.</string>
+
+    <string name="notification_channel_background_replies">Background Replies</string>
+    <string name="notification_channel_background_replies_description">Keeps Miaochat replies running while the app is in the background.</string>
+    <string name="notification_reason_background_send">Continuing the reply while the app is in the background</string>
+    <string name="notification_reason_background_regenerate">Regenerating the reply in the background</string>
+    <string name="notification_background_title">Thinking in Background</string>
+    <string name="notification_subtext_background">Background</string>
+    <string name="notification_title_format">%1$s: %2$s</string>
+
+    <string name="transcript_role_user">You</string>
+    <string name="transcript_role_assistant">Assistant</string>
+    <string name="transcript_empty_text">[No text]</string>
+
+    <plurals name="thread_message_count">
+        <item quantity="one">%1$d message</item>
+        <item quantity="other">%1$d messages</item>
+    </plurals>
+
+    <plurals name="history_thread_total_count">
+        <item quantity="one">%1$d thread</item>
+        <item quantity="other">%1$d threads</item>
+    </plurals>
+
+    <plurals name="history_thread_matching_count">
+        <item quantity="one">%1$d matching thread</item>
+        <item quantity="other">%1$d matching threads</item>
+    </plurals>
+
+    <plurals name="history_hits_count">
+        <item quantity="one">%1$d hit</item>
+        <item quantity="other">%1$d hits</item>
+    </plurals>
+
+    <plurals name="history_message_short_count">
+        <item quantity="one">%1$d msg</item>
+        <item quantity="other">%1$d msgs</item>
+    </plurals>
+
+    <plurals name="transcript_attachment_count">
+        <item quantity="one">[Attachments: %1$d image]</item>
+        <item quantity="other">[Attachments: %1$d images]</item>
+    </plurals>
 </resources>

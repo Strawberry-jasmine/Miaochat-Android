@@ -1,30 +1,31 @@
 package com.example.relaychat.app
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.relaychat.R
 import com.example.relaychat.core.importer.CodexConfigImporter
+import com.example.relaychat.core.importer.CodexConfigImportException
 import com.example.relaychat.core.importer.CodexConfigImportResult
 import com.example.relaychat.core.model.AppSettings
 import com.example.relaychat.core.model.ChatAttachment
 import com.example.relaychat.core.model.ChatMessage
 import com.example.relaychat.core.model.ChatRole
-import com.example.relaychat.core.model.ChatSendResult
-import com.example.relaychat.core.model.ChatStreamEvent
-import com.example.relaychat.core.model.ChatStreamLifecycleStage
 import com.example.relaychat.core.model.ChatThread
 import com.example.relaychat.core.model.ProviderApiStyle
 import com.example.relaychat.core.model.ProviderProfile
 import com.example.relaychat.core.model.ProviderPreset
 import com.example.relaychat.core.model.RequestControls
 import com.example.relaychat.core.model.RequestTuningPreset
-import com.example.relaychat.core.model.RuntimeChatConfiguration
-import com.example.relaychat.core.network.ChatService
+import com.example.relaychat.core.model.ResponseFormatMode
 import com.example.relaychat.core.network.ChatServiceException
 import com.example.relaychat.core.network.EndpointResolver
 import com.example.relaychat.data.settings.SettingsRepository
 import com.example.relaychat.data.threads.ThreadRepository
+import com.example.relaychat.localization.AppLocaleManager
+import com.example.relaychat.ui.strings.detailFor
+import com.example.relaychat.ui.strings.stringFor
+import com.example.relaychat.ui.theme.applyToAppCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
@@ -41,17 +42,32 @@ data class ImportedConfigSummary(
     val apiKeyEnvName: String,
 ) {
     companion object {
-        fun from(result: CodexConfigImportResult): ImportedConfigSummary = ImportedConfigSummary(
+        fun from(
+            result: CodexConfigImportResult,
+            application: Application,
+        ): ImportedConfigSummary = ImportedConfigSummary(
             providerName = result.providerName,
             model = result.settings.provider.model,
             endpoint = EndpointResolver.buildDisplayString(
                 baseUrl = result.settings.provider.baseUrl,
                 path = result.settings.provider.path,
             ),
-            reasoning = result.settings.defaultControls.reasoningEffort.name.lowercase(),
-            verbosity = result.settings.defaultControls.verbosity.name.lowercase(),
-            webSearch = if (result.settings.defaultControls.webSearchEnabled) "Enabled" else "Disabled",
-            responseStorage = if (result.settings.defaultControls.responseStorageEnabled) "Enabled" else "Disabled",
+            reasoning = application.stringFor(result.settings.defaultControls.reasoningEffort),
+            verbosity = application.stringFor(result.settings.defaultControls.verbosity),
+            webSearch = application.getString(
+                if (result.settings.defaultControls.webSearchEnabled) {
+                    R.string.status_enabled
+                } else {
+                    R.string.status_disabled
+                },
+            ),
+            responseStorage = application.getString(
+                if (result.settings.defaultControls.responseStorageEnabled) {
+                    R.string.status_enabled
+                } else {
+                    R.string.status_disabled
+                },
+            ),
             apiKeyEnvName = result.apiKeyEnvName,
         )
     }
@@ -67,7 +83,7 @@ data class InFlightAssistantReply(
     val threadId: String,
     val text: String = "",
     val stage: InFlightAssistantStage = InFlightAssistantStage.THINKING,
-    val detail: String = "sending request",
+    val detail: String = "thinking",
     val startedAtMs: Long = System.currentTimeMillis(),
     val stageChangedAtMs: Long = startedAtMs,
     val visitedStages: List<InFlightAssistantStage> = listOf(stage),
@@ -109,7 +125,7 @@ class RelayChatViewModel(
 ) : AndroidViewModel(application) {
     private val settingsRepository = SettingsRepository(application)
     private val threadRepository = ThreadRepository(application)
-    private val chatService = ChatService(application.applicationContext)
+    private val executionCoordinator = ChatExecutionCoordinator.getInstance(application.applicationContext)
 
     private val _uiState = MutableStateFlow(RelayChatUiState())
     val uiState: MutableStateFlow<RelayChatUiState> = _uiState
@@ -128,9 +144,22 @@ class RelayChatViewModel(
         viewModelScope.launch {
             settingsRepository.settingsFlow.collect { settings ->
                 _uiState.update { state ->
+                    if (state.settings.themeMode != settings.themeMode) {
+                        settings.themeMode.applyToAppCompat()
+                    }
+                    if (state.settings.appLocale != settings.appLocale &&
+                        AppLocaleManager.currentAppLocale() != settings.appLocale
+                    ) {
+                        AppLocaleManager.apply(settings.appLocale)
+                    }
+
                     state.copy(
                         settings = settings,
-                        controls = settings.defaultControls,
+                        controls = mergeControlsForSettingsChange(
+                            currentControls = state.controls,
+                            previousSettings = state.settings,
+                            newSettings = settings,
+                        ),
                         attachment = if (settings.provider.supportsImageInput) state.attachment else null,
                     )
                 }
@@ -171,9 +200,29 @@ class RelayChatViewModel(
         viewModelScope.launch {
             threadRepository.ensureSelectedThread()
         }
+
+        viewModelScope.launch {
+            executionCoordinator.activeReply.collect { reply ->
+                _uiState.update { state ->
+                    state.copy(
+                        inFlightReply = reply,
+                        isSending = reply != null,
+                    )
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            executionCoordinator.lastFailure.collect { failure ->
+                if (failure != null) {
+                    _uiState.update { it.copy(errorMessage = failure.message) }
+                }
+            }
+        }
     }
 
     fun dismissError() {
+        executionCoordinator.clearFailure()
         _uiState.update { it.copy(errorMessage = null) }
     }
 
@@ -237,20 +286,33 @@ class RelayChatViewModel(
         }
     }
 
+    fun updateAppLocale(appLocale: com.example.relaychat.core.model.AppLocale) {
+        viewModelScope.launch {
+            settingsRepository.writeSettings(_uiState.value.settings.copy(appLocale = appLocale))
+            AppLocaleManager.apply(appLocale)
+        }
+    }
+
     fun applyProviderPreset(
         preset: ProviderPreset,
-        status: String = "Applied the ${preset.title} preset.",
+        status: String? = null,
     ) {
         viewModelScope.launch {
             settingsRepository.writeSettings(
-                AppSettings(
+                importedSettingsPreservingAppPreferences(
+                    current = _uiState.value.settings,
+                    imported = AppSettings(
                     provider = preset.profile,
                     defaultControls = preset.defaultControls,
-                )
+                    ),
+                ),
             )
             _uiState.update {
                 it.copy(
-                    importStatus = status,
+                    importStatus = status ?: getApplication<Application>().getString(
+                        R.string.status_provider_preset_applied,
+                        getApplication<Application>().stringFor(preset),
+                    ),
                     importSummary = null,
                 )
             }
@@ -264,7 +326,12 @@ class RelayChatViewModel(
             settings.copy(defaultControls = updatedControls)
         }
         _uiState.update {
-            it.copy(importStatus = "Applied the ${preset.title.lowercase()} quality preset to the default controls.")
+            it.copy(
+                importStatus = getApplication<Application>().getString(
+                    R.string.status_quality_preset_applied,
+                    getApplication<Application>().stringFor(preset),
+                ),
+            )
         }
     }
 
@@ -272,17 +339,32 @@ class RelayChatViewModel(
         viewModelScope.launch {
             runCatching { CodexConfigImporter.parse(raw) }
                 .onSuccess { result ->
-                    settingsRepository.writeSettings(result.settings)
+                    val mergedSettings = importedSettingsPreservingAppPreferences(
+                        current = _uiState.value.settings,
+                        imported = result.settings,
+                    )
+                    settingsRepository.writeSettings(mergedSettings)
                     _uiState.update {
                         it.copy(
-                            importStatus = "Imported ${result.providerName} config. Set the API key if it is not already stored.",
-                            importSummary = ImportedConfigSummary.from(result),
+                            importStatus = getApplication<Application>().getString(
+                                R.string.status_config_imported,
+                                result.providerName,
+                            ),
+                            importSummary = ImportedConfigSummary.from(result, getApplication()),
                             errorMessage = null,
                         )
                     }
                 }
                 .onFailure { error ->
-                    _uiState.update { it.copy(errorMessage = error.message ?: "Import failed") }
+                    val fallbackMessage = getApplication<Application>().getString(R.string.error_import_failed)
+                    _uiState.update {
+                        it.copy(
+                            errorMessage = importFailureMessage(
+                                error = error,
+                                localizedFallback = fallbackMessage,
+                            ),
+                        )
+                    }
                 }
         }
     }
@@ -355,15 +437,14 @@ class RelayChatViewModel(
         }
 
         viewModelScope.launch {
-            val provider = _uiState.value.settings.provider
-            if (_uiState.value.attachment != null && !provider.supportsImageInput) {
-                _uiState.update { it.copy(errorMessage = "The current provider profile has image input disabled.") }
+            if (snapshot.attachment != null && !snapshot.settings.provider.supportsImageInput) {
+                _uiState.update { it.copy(errorMessage = getApplication<Application>().getString(R.string.error_provider_image_disabled)) }
                 return@launch
             }
 
-            val apiKey = _uiState.value.apiKey.trim()
+            val apiKey = snapshot.apiKey.trim()
             if (apiKey.isEmpty()) {
-                _uiState.update { it.copy(errorMessage = "Set an API key in Settings before sending.") }
+                _uiState.update { it.copy(errorMessage = getApplication<Application>().getString(R.string.error_api_key_before_send)) }
                 return@launch
             }
 
@@ -374,218 +455,122 @@ class RelayChatViewModel(
                 attachments = snapshot.attachment?.let { listOf(it) } ?: emptyList(),
             )
             threadRepository.appendMessage(userMessage, threadId)
-            beginInFlightReply(threadId)
 
-            _uiState.update {
-                it.copy(
-                    draft = "",
-                    attachment = null,
-                    errorMessage = null,
-                    composerNote = null,
-                    isSending = true,
-                )
-            }
+            when (val startResult = executionCoordinator.start(threadId, snapshot.controls)) {
+                is ChatExecutionStartResult.Started -> {
+                    _uiState.update {
+                        it.copy(
+                            draft = "",
+                            attachment = null,
+                            errorMessage = null,
+                            composerNote = null,
+                            isSending = true,
+                            inFlightReply = startResult.reply,
+                        )
+                    }
+                    ChatForegroundService.startSend(
+                        context = getApplication(),
+                        threadId = threadId,
+                        reason = getApplication<Application>().getString(R.string.notification_reason_background_send),
+                    )
+                }
 
-            try {
-                val currentThread = threadRepository.getThread(threadId)
-                    ?: error("No active thread was available.")
-                val runtime = RuntimeChatConfiguration(_uiState.value.settings, apiKey)
-                executeWithStreamingFallback(
-                    provider = provider,
-                    streamRequest = {
-                        sendStreaming(currentThread, runtime, threadId)
-                    },
-                    sendRequest = {
-                        val result = chatService.send(currentThread, runtime, _uiState.value.controls)
-                        appendAssistantResult(threadId, result)
-                    },
-                )
-                clearInFlightReply(threadId, status = "completed")
-            } catch (error: Exception) {
-                clearInFlightReply(threadId, status = "failed")
-                _uiState.update { it.copy(errorMessage = error.message ?: "Request failed.") }
-            } finally {
-                _uiState.update { it.copy(isSending = false) }
+                is ChatExecutionStartResult.Rejected -> {
+                    _uiState.update { it.copy(errorMessage = startResult.message) }
+                }
             }
         }
     }
 
     fun regenerateLastAssistant() {
-        val currentThread = _uiState.value.currentThread ?: return
+        val snapshot = _uiState.value
+        val currentThread = snapshot.currentThread ?: return
         val lastAssistant = currentThread.messages.lastOrNull()
         val lastUser = currentThread.messages.lastOrNull { it.role == ChatRole.USER }
-        if (_uiState.value.isSending) {
+        if (snapshot.isSending) {
             return
         }
         if (lastAssistant?.role != ChatRole.ASSISTANT || lastUser == null) {
-            _uiState.update { it.copy(errorMessage = "There is no assistant reply to regenerate.") }
+            _uiState.update { it.copy(errorMessage = getApplication<Application>().getString(R.string.error_no_reply_to_regenerate)) }
             return
         }
 
         viewModelScope.launch {
-            val apiKey = _uiState.value.apiKey.trim()
+            val apiKey = snapshot.apiKey.trim()
             if (apiKey.isEmpty()) {
-                _uiState.update { it.copy(errorMessage = "Set an API key in Settings before regenerating.") }
+                _uiState.update { it.copy(errorMessage = getApplication<Application>().getString(R.string.error_api_key_before_regenerate)) }
                 return@launch
             }
 
             threadRepository.trimThread(currentThread.id, lastUser.id)
-            beginInFlightReply(currentThread.id)
-            _uiState.update {
-                it.copy(
-                    isSending = true,
-                    composerNote = "Regenerating the last reply",
-                    errorMessage = null,
-                )
-            }
 
-            try {
-                val trimmedThread = threadRepository.getThread(currentThread.id)
-                    ?: error("Could not prepare the thread for regeneration.")
-                val runtime = RuntimeChatConfiguration(_uiState.value.settings, apiKey)
-                executeWithStreamingFallback(
-                    provider = runtime.settings.provider,
-                    streamRequest = {
-                        sendStreaming(trimmedThread, runtime, trimmedThread.id)
-                    },
-                    sendRequest = {
-                        val result = chatService.send(trimmedThread, runtime, _uiState.value.controls)
-                        appendAssistantResult(trimmedThread.id, result)
-                    },
-                )
-                clearInFlightReply(trimmedThread.id, status = "completed")
-            } catch (error: Exception) {
-                clearInFlightReply(currentThread.id, status = "failed")
-                _uiState.update { it.copy(errorMessage = error.message ?: "Regeneration failed.") }
-            } finally {
-                _uiState.update { it.copy(isSending = false, composerNote = null) }
-            }
-        }
-    }
-
-    private suspend fun sendStreaming(
-        thread: ChatThread,
-        runtime: RuntimeChatConfiguration,
-        threadId: String,
-    ) {
-        chatService.stream(thread, runtime, _uiState.value.controls).collect { event ->
-            when (event) {
-                is ChatStreamEvent.Lifecycle -> {
-                    updateInFlightLifecycle(
-                        threadId = threadId,
-                        stage = event.stage,
-                        detail = event.detail ?: "thinking",
+            when (val startResult = executionCoordinator.start(currentThread.id, snapshot.controls)) {
+                is ChatExecutionStartResult.Started -> {
+                    _uiState.update {
+                        it.copy(
+                            isSending = true,
+                            composerNote = getApplication<Application>().getString(R.string.chat_note_regenerating),
+                            errorMessage = null,
+                            inFlightReply = startResult.reply,
+                        )
+                    }
+                    ChatForegroundService.startSend(
+                        context = getApplication(),
+                        threadId = currentThread.id,
+                        reason = getApplication<Application>().getString(R.string.notification_reason_background_regenerate),
                     )
                 }
 
-                is ChatStreamEvent.TextDelta -> {
-                    Log.d(
-                        STREAM_TAG,
-                        "delta thread=$threadId text=${event.delta.replace('\n', ' ').take(120)}"
-                    )
-                    appendInFlightReplyText(threadId, event.delta)
+                is ChatExecutionStartResult.Rejected -> {
+                    _uiState.update { it.copy(errorMessage = startResult.message, composerNote = null) }
                 }
-
-                is ChatStreamEvent.Completed -> {
-                    Log.i(
-                        STREAM_TAG,
-                        "completed thread=$threadId text=${event.result.assistantText.replace('\n', ' ').take(200)}"
-                    )
-                    appendAssistantResult(threadId, event.result)
-                }
-            }
-        }
-    }
-
-    private suspend fun appendAssistantResult(
-        threadId: String,
-        result: ChatSendResult,
-    ) {
-        threadRepository.appendMessage(
-            ChatMessage(
-                role = ChatRole.ASSISTANT,
-                text = result.assistantText,
-                remoteResponseId = result.responseId,
-                requestId = result.requestId,
-                model = result.model,
-            ),
-            threadId,
-        )
-        threadRepository.setLastResponseId(threadId, result.responseId)
-    }
-
-    private fun beginInFlightReply(threadId: String) {
-        Log.i(UI_TAG, "thread=$threadId phase=thinking detail=sending request")
-        _uiState.update {
-            it.copy(inFlightReply = beginInFlightAssistantReply(threadId = threadId))
-        }
-    }
-
-    private fun updateInFlightLifecycle(
-        threadId: String,
-        stage: ChatStreamLifecycleStage,
-        detail: String,
-    ) {
-        _uiState.update { state ->
-            val current = state.inFlightReply?.takeIf { it.threadId == threadId } ?: return@update state
-            val nextStage = when (stage) {
-                ChatStreamLifecycleStage.TOOL -> InFlightAssistantStage.SEARCHING
-                ChatStreamLifecycleStage.REASONING,
-                ChatStreamLifecycleStage.OUTPUT,
-                ChatStreamLifecycleStage.OTHER,
-                -> InFlightAssistantStage.THINKING
-            }
-            if (current.stage == nextStage && current.detail == detail) {
-                return@update state
-            }
-            Log.i(UI_TAG, "thread=$threadId phase=${nextStage.name.lowercase()} detail=$detail")
-            state.copy(
-                inFlightReply = current.transitionTo(
-                    stage = nextStage,
-                    detail = detail,
-                )
-            )
-        }
-    }
-
-    private fun appendInFlightReplyText(
-        threadId: String,
-        delta: String,
-    ) {
-        _uiState.update { state ->
-            val current = state.inFlightReply?.takeIf { it.threadId == threadId } ?: return@update state
-            val nextText = current.text + delta
-            if (current.text.isBlank()) {
-                Log.i(UI_TAG, "thread=$threadId phase=streaming detail=drafting reply")
-            }
-            state.copy(
-                inFlightReply = current.transitionTo(
-                    stage = InFlightAssistantStage.STREAMING,
-                    detail = "drafting reply",
-                ).copy(
-                    text = nextText,
-                )
-            )
-        }
-    }
-
-    private fun clearInFlightReply(
-        threadId: String,
-        status: String,
-    ) {
-        Log.i(UI_TAG, "thread=$threadId phase=$status")
-        _uiState.update { state ->
-            if (state.inFlightReply?.threadId != threadId) {
-                state
-            } else {
-                state.copy(inFlightReply = null)
             }
         }
     }
 }
 
-private const val STREAM_TAG = "RelayChatStream"
-private const val UI_TAG = "RelayChatUi"
+internal fun importedSettingsPreservingAppPreferences(
+    current: AppSettings,
+    imported: AppSettings,
+): AppSettings = imported.copy(
+    appLocale = current.appLocale,
+    themeMode = current.themeMode,
+)
+
+internal fun importFailureMessage(
+    error: Throwable,
+    localizedFallback: String,
+): String = when (error) {
+    is CodexConfigImportException -> localizedFallback
+    else -> error.message ?: localizedFallback
+}
+
+private fun mergeControlsForSettingsChange(
+    currentControls: RequestControls,
+    previousSettings: AppSettings,
+    newSettings: AppSettings,
+): RequestControls {
+    val shouldTrackDefaults = currentControls == previousSettings.defaultControls
+    val candidate = if (shouldTrackDefaults) {
+        newSettings.defaultControls
+    } else {
+        currentControls
+    }
+
+    return candidate.copy(
+        verbosity = if (newSettings.provider.supportsVerbosity) {
+            candidate.verbosity
+        } else {
+            newSettings.defaultControls.verbosity
+        },
+        webSearchEnabled = candidate.webSearchEnabled && newSettings.provider.supportsWebSearch,
+        responseFormat = if (newSettings.provider.supportsStructuredOutputs) {
+            candidate.responseFormat
+        } else {
+            candidate.responseFormat.copy(mode = ResponseFormatMode.TEXT)
+        },
+    )
+}
 
 internal suspend fun <T> executeWithStreamingFallback(
     provider: ProviderProfile,

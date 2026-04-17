@@ -28,7 +28,7 @@ data class ChatMessage(
 
 data class ChatThread(
     val id: String = UUID.randomUUID().toString(),
-    val title: String = "New Chat",
+    val title: String = LegacyDefaultThreadTitle,
     val messages: List<ChatMessage> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),

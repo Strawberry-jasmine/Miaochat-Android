@@ -3,4 +3,5 @@
     <color name="launcher_bg_mid">#F3D8CC</color>
     <color name="launcher_bg_bottom">#DCA48F</color>
     <color name="launcher_bg_highlight">#66FFFFFF</color>
+    <color name="relay_launch_background">#F1F5FA</color>
 </resources>

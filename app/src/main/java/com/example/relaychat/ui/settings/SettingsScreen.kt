@@ -1,4 +1,4 @@
-package com.example.relaychat.ui.settings
+﻿package com.example.relaychat.ui.settings
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -39,12 +39,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.relaychat.R
 import com.example.relaychat.app.ImportedConfigSummary
 import com.example.relaychat.app.RelayChatUiState
 import com.example.relaychat.app.RelayChatViewModel
+import com.example.relaychat.core.model.AppLocale
 import com.example.relaychat.core.model.AppThemeMode
 import com.example.relaychat.core.model.ProviderPreset
 import com.example.relaychat.core.model.RequestTuningPreset
@@ -54,6 +58,11 @@ import com.example.relaychat.ui.components.RelayGlassCard
 import com.example.relaychat.ui.components.RelayInfoPill
 import com.example.relaychat.ui.components.RelaySectionEyebrow
 import com.example.relaychat.ui.components.relayOutlinedTextFieldColors
+import com.example.relaychat.ui.strings.detailFor
+import com.example.relaychat.ui.strings.detailRes
+import com.example.relaychat.ui.strings.labelRes
+import com.example.relaychat.ui.strings.stringFor
+import com.example.relaychat.ui.strings.titleRes
 
 @Composable
 fun SettingsScreen(
@@ -61,6 +70,7 @@ fun SettingsScreen(
     viewModel: RelayChatViewModel,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     var importDialogVisible by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -72,9 +82,18 @@ fun SettingsScreen(
         SettingsOverview(uiState = uiState)
 
         SectionCard(
-            title = "Appearance",
+            title = stringResource(R.string.settings_appearance_title),
             accent = MaterialTheme.colorScheme.primary,
         ) {
+            LanguageSelector(
+                currentLocale = uiState.settings.appLocale,
+                onSelected = viewModel::updateAppLocale,
+            )
+            Text(
+                text = stringResource(R.string.settings_language_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             ThemeModeSelector(
                 currentMode = uiState.settings.themeMode,
                 onSelected = { mode ->
@@ -84,35 +103,38 @@ fun SettingsScreen(
                 },
             )
             Text(
-                text = "Theme choice applies immediately to chat, settings, history, cards, controls, and navigation. Follow system tracks Android light/dark mode changes.",
+                text = stringResource(R.string.settings_theme_description),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        SectionCard(title = "Quick setup") {
+        SectionCard(title = stringResource(R.string.settings_quick_setup_title)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = { importDialogVisible = true },
-                    label = { Text("Import Codex config") },
+                    label = { Text(stringResource(R.string.settings_import_codex_config)) },
                 )
                 AssistChip(
                     onClick = {
                         viewModel.applyProviderPreset(
                             ProviderPreset.INTELALLOC_CODEX,
-                            status = "Applied the intelalloc Codex preset. Add or confirm the API key before sending.",
+                            status = context.getString(
+                                R.string.status_provider_preset_applied_with_key,
+                                context.stringFor(ProviderPreset.INTELALLOC_CODEX),
+                            ),
                         )
                     },
-                    label = { Text("Use intelalloc preset") },
+                    label = { Text(stringResource(R.string.settings_use_intelalloc_preset)) },
                 )
             }
             AssistChip(
                 onClick = {
                     viewModel.applyProviderPreset(ProviderPreset.OPENAI_RESPONSES)
                 },
-                label = { Text("Use OpenAI Responses preset") },
+                label = { Text(stringResource(R.string.settings_use_openai_responses_preset)) },
             )
-            KeyValueRow(label = "Resolved endpoint", value = uiState.resolvedEndpoint)
+            KeyValueRow(label = stringResource(R.string.settings_endpoint_short_label), value = uiState.resolvedEndpoint)
             uiState.importStatus?.let {
                 Text(
                     text = it,
@@ -126,59 +148,59 @@ fun SettingsScreen(
             ImportSummarySection(summary = it)
         }
 
-        SectionCard(title = "Preset") {
+        SectionCard(title = stringResource(R.string.settings_preset_title)) {
             EnumSelector(
-                title = "Provider preset",
-                currentLabel = ProviderPreset.fromId(uiState.settings.provider.presetId).title,
+                title = stringResource(R.string.settings_provider_preset_label),
+                currentLabel = context.stringFor(ProviderPreset.fromId(uiState.settings.provider.presetId)),
                 options = ProviderPreset.entries,
-                labelFor = { preset -> preset.title },
+                labelFor = { preset -> context.stringFor(preset) },
                 onSelected = { preset ->
                     viewModel.applyProviderPreset(preset)
                 },
             )
             Text(
-                text = ProviderPreset.fromId(uiState.settings.provider.presetId).detail,
+                text = context.detailFor(ProviderPreset.fromId(uiState.settings.provider.presetId)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        SectionCard(title = "Quality presets") {
+        SectionCard(title = stringResource(R.string.settings_quality_presets_title)) {
             RequestTuningPreset.entries.forEach { preset ->
                 TextButton(onClick = { viewModel.applyDefaultTuningPreset(preset) }) {
-                    Text(preset.title)
+                    Text(stringResource(preset.titleRes()))
                 }
                 Text(
-                    text = preset.detail,
+                    text = stringResource(preset.detailRes()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        SectionCard(title = "Endpoint") {
+        SectionCard(title = stringResource(R.string.settings_endpoint_title)) {
             EnumSelector(
-                title = "API style",
-                currentLabel = uiState.settings.provider.apiStyle.name,
+                title = stringResource(R.string.settings_api_style_label),
+                currentLabel = context.stringFor(uiState.settings.provider.apiStyle),
                 options = com.example.relaychat.core.model.ProviderApiStyle.entries,
-                labelFor = { it.name },
+                labelFor = { context.stringFor(it) },
                 onSelected = { style ->
                     viewModel.updateSettings {
                         it.copy(provider = it.provider.copy(apiStyle = style))
                     }
                 },
             )
-            SimpleTextField("Display name", uiState.settings.provider.displayName) {
+            SimpleTextField(stringResource(R.string.settings_display_name_label), uiState.settings.provider.displayName) {
                 viewModel.updateSettings { settings ->
                     settings.copy(provider = settings.provider.copy(displayName = it))
                 }
             }
-            SimpleTextField("Base URL", uiState.settings.provider.baseUrl) {
+            SimpleTextField(stringResource(R.string.settings_base_url_label), uiState.settings.provider.baseUrl) {
                 viewModel.updateSettings { settings ->
                     settings.copy(provider = settings.provider.copy(baseUrl = it))
                 }
             }
-            SimpleTextField("Path", uiState.settings.provider.path) {
+            SimpleTextField(stringResource(R.string.settings_path_label), uiState.settings.provider.path) {
                 viewModel.updateSettings { settings ->
                     settings.copy(provider = settings.provider.copy(path = it))
                 }
@@ -188,20 +210,20 @@ fun SettingsScreen(
                 onValueChange = viewModel::writeApiKey,
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
-                label = { Text("API key") },
+                label = { Text(stringResource(R.string.settings_api_key_label)) },
                 shape = RoundedCornerShape(20.dp),
                 colors = relayOutlinedTextFieldColors(),
             )
-            SimpleTextField("Model", uiState.settings.provider.model) {
+            SimpleTextField(stringResource(R.string.settings_model_label), uiState.settings.provider.model) {
                 viewModel.updateSettings { settings ->
                     settings.copy(provider = settings.provider.copy(model = it))
                 }
             }
         }
 
-        SectionCard(title = "Instructions") {
+        SectionCard(title = stringResource(R.string.settings_instructions_title)) {
             SimpleTextField(
-                label = "Instructions / system prompt",
+                label = stringResource(R.string.settings_instructions_label),
                 value = uiState.settings.provider.instructionsPrompt,
                 minLines = 3,
                 maxLines = 8,
@@ -212,12 +234,12 @@ fun SettingsScreen(
             }
         }
 
-        SectionCard(title = "Default chat controls") {
+        SectionCard(title = stringResource(R.string.settings_default_controls_title)) {
             EnumSelector(
-                title = "Reasoning",
-                currentLabel = uiState.settings.defaultControls.reasoningEffort.name.lowercase(),
+                title = stringResource(R.string.settings_reasoning_label),
+                currentLabel = context.stringFor(uiState.settings.defaultControls.reasoningEffort),
                 options = com.example.relaychat.core.model.ReasoningEffort.entries,
-                labelFor = { it.name.lowercase() },
+                labelFor = { context.stringFor(it) },
                 onSelected = { value ->
                     viewModel.updateSettings { settings ->
                         settings.copy(defaultControls = settings.defaultControls.copy(reasoningEffort = value))
@@ -226,10 +248,10 @@ fun SettingsScreen(
             )
             if (uiState.settings.provider.supportsVerbosity) {
                 EnumSelector(
-                    title = "Verbosity",
-                    currentLabel = uiState.settings.defaultControls.verbosity.name.lowercase(),
+                    title = stringResource(R.string.settings_verbosity_label),
+                    currentLabel = context.stringFor(uiState.settings.defaultControls.verbosity),
                     options = com.example.relaychat.core.model.VerbosityLevel.entries,
-                    labelFor = { it.name.lowercase() },
+                    labelFor = { context.stringFor(it) },
                     onSelected = { value ->
                         viewModel.updateSettings { settings ->
                             settings.copy(defaultControls = settings.defaultControls.copy(verbosity = value))
@@ -238,7 +260,7 @@ fun SettingsScreen(
                 )
             }
             SwitchRow(
-                label = "Web/search by default",
+                label = stringResource(R.string.settings_web_search_by_default),
                 checked = uiState.settings.defaultControls.webSearchEnabled,
                 enabled = uiState.settings.provider.supportsWebSearch,
             ) { checked ->
@@ -246,16 +268,16 @@ fun SettingsScreen(
                     settings.copy(defaultControls = settings.defaultControls.copy(webSearchEnabled = checked))
                 }
             }
-            SwitchRow("Store responses on provider side", uiState.settings.defaultControls.responseStorageEnabled) { checked ->
+            SwitchRow(stringResource(R.string.settings_response_storage), uiState.settings.defaultControls.responseStorageEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(responseStorageEnabled = checked))
                 }
             }
             EnumSelector(
-                title = "Tool choice",
-                currentLabel = uiState.settings.defaultControls.toolChoice.name.lowercase(),
+                title = stringResource(R.string.settings_tool_choice_label),
+                currentLabel = context.stringFor(uiState.settings.defaultControls.toolChoice),
                 options = ToolChoiceMode.entries,
-                labelFor = { it.name.lowercase() },
+                labelFor = { context.stringFor(it) },
                 onSelected = { value ->
                     viewModel.updateSettings { settings ->
                         settings.copy(defaultControls = settings.defaultControls.copy(toolChoice = value))
@@ -264,15 +286,15 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Sampling and determinism") {
-            SwitchRow("Enable temperature", uiState.settings.defaultControls.temperatureEnabled) { checked ->
+        SectionCard(title = stringResource(R.string.settings_sampling_title)) {
+            SwitchRow(stringResource(R.string.settings_enable_temperature), uiState.settings.defaultControls.temperatureEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(temperatureEnabled = checked))
                 }
             }
             AnimatedVisibility(visible = uiState.settings.defaultControls.temperatureEnabled) {
                 NumberField(
-                    label = "Temperature",
+                    label = stringResource(R.string.settings_temperature_label),
                     value = uiState.settings.defaultControls.temperature.toString(),
                     onValueChanged = { value ->
                         value.toDoubleOrNull()?.let { number ->
@@ -283,14 +305,14 @@ fun SettingsScreen(
                     },
                 )
             }
-            SwitchRow("Enable top_p", uiState.settings.defaultControls.topPEnabled) { checked ->
+            SwitchRow(stringResource(R.string.settings_enable_top_p), uiState.settings.defaultControls.topPEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(topPEnabled = checked))
                 }
             }
             AnimatedVisibility(visible = uiState.settings.defaultControls.topPEnabled) {
                 NumberField(
-                    label = "Top P",
+                    label = stringResource(R.string.settings_top_p_label),
                     value = uiState.settings.defaultControls.topP.toString(),
                     onValueChanged = { value ->
                         value.toDoubleOrNull()?.let { number ->
@@ -301,14 +323,14 @@ fun SettingsScreen(
                     },
                 )
             }
-            SwitchRow("Limit max output tokens", uiState.settings.defaultControls.maxOutputTokensEnabled) { checked ->
+            SwitchRow(stringResource(R.string.settings_enable_max_output_tokens), uiState.settings.defaultControls.maxOutputTokensEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(maxOutputTokensEnabled = checked))
                 }
             }
             AnimatedVisibility(visible = uiState.settings.defaultControls.maxOutputTokensEnabled) {
                 NumberField(
-                    label = "Max output tokens",
+                    label = stringResource(R.string.settings_max_output_tokens_label),
                     value = uiState.settings.defaultControls.maxOutputTokens.toString(),
                     keyboardType = KeyboardType.Number,
                     onValueChanged = { value ->
@@ -320,14 +342,14 @@ fun SettingsScreen(
                     },
                 )
             }
-            SwitchRow("Enable seed", uiState.settings.defaultControls.seedEnabled) { checked ->
+            SwitchRow(stringResource(R.string.settings_enable_seed), uiState.settings.defaultControls.seedEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(seedEnabled = checked))
                 }
             }
             AnimatedVisibility(visible = uiState.settings.defaultControls.seedEnabled) {
                 NumberField(
-                    label = "Seed",
+                    label = stringResource(R.string.settings_seed_label),
                     value = uiState.settings.defaultControls.seed.toString(),
                     keyboardType = KeyboardType.Number,
                     onValueChanged = { value ->
@@ -341,12 +363,12 @@ fun SettingsScreen(
             }
         }
 
-        SectionCard(title = "Structured outputs") {
+        SectionCard(title = stringResource(R.string.settings_structured_outputs_title)) {
             EnumSelector(
-                title = "Response format",
-                currentLabel = uiState.settings.defaultControls.responseFormat.mode.name.lowercase(),
+                title = stringResource(R.string.settings_response_format_label),
+                currentLabel = context.stringFor(uiState.settings.defaultControls.responseFormat.mode),
                 options = ResponseFormatMode.entries,
-                labelFor = { it.name.lowercase() },
+                labelFor = { context.stringFor(it) },
                 onSelected = { mode ->
                     viewModel.updateSettings { settings ->
                         settings.copy(
@@ -359,7 +381,7 @@ fun SettingsScreen(
             )
 
             if (uiState.settings.defaultControls.responseFormat.mode == ResponseFormatMode.JSON_SCHEMA) {
-                SimpleTextField("Schema name", uiState.settings.defaultControls.responseFormat.schemaName) {
+                SimpleTextField(stringResource(R.string.settings_schema_name_label), uiState.settings.defaultControls.responseFormat.schemaName) {
                     viewModel.updateSettings { settings ->
                         settings.copy(
                             defaultControls = settings.defaultControls.copy(
@@ -368,7 +390,7 @@ fun SettingsScreen(
                         )
                     }
                 }
-                SimpleTextField("Schema description", uiState.settings.defaultControls.responseFormat.schemaDescription) {
+                SimpleTextField(stringResource(R.string.settings_schema_description_label), uiState.settings.defaultControls.responseFormat.schemaDescription) {
                     viewModel.updateSettings { settings ->
                         settings.copy(
                             defaultControls = settings.defaultControls.copy(
@@ -377,7 +399,7 @@ fun SettingsScreen(
                         )
                     }
                 }
-                SwitchRow("Strict schema", uiState.settings.defaultControls.responseFormat.strict) { checked ->
+                SwitchRow(stringResource(R.string.settings_schema_strict), uiState.settings.defaultControls.responseFormat.strict) { checked ->
                     viewModel.updateSettings { settings ->
                         settings.copy(
                             defaultControls = settings.defaultControls.copy(
@@ -387,7 +409,7 @@ fun SettingsScreen(
                     }
                 }
                 SimpleTextField(
-                    label = "JSON schema",
+                    label = stringResource(R.string.settings_json_schema_label),
                     value = uiState.settings.defaultControls.responseFormat.schemaJson,
                     minLines = 6,
                     maxLines = 12,
@@ -403,26 +425,26 @@ fun SettingsScreen(
             }
         }
 
-        SectionCard(title = "Capabilities") {
-            CapabilitySwitch("Supports image input", uiState.settings.provider.supportsImageInput, viewModel) {
+        SectionCard(title = stringResource(R.string.settings_capabilities_title)) {
+            CapabilitySwitch(stringResource(R.string.settings_supports_image_input), uiState.settings.provider.supportsImageInput, viewModel) {
                 it.copy(supportsImageInput = it.supportsImageInput.not())
             }
-            CapabilitySwitch("Supports web/search", uiState.settings.provider.supportsWebSearch, viewModel) {
+            CapabilitySwitch(stringResource(R.string.settings_supports_web_search), uiState.settings.provider.supportsWebSearch, viewModel) {
                 it.copy(supportsWebSearch = it.supportsWebSearch.not())
             }
-            CapabilitySwitch("Supports streaming", uiState.settings.provider.supportsStreaming, viewModel) {
+            CapabilitySwitch(stringResource(R.string.settings_supports_streaming), uiState.settings.provider.supportsStreaming, viewModel) {
                 it.copy(supportsStreaming = it.supportsStreaming.not())
             }
-            CapabilitySwitch("Supports verbosity", uiState.settings.provider.supportsVerbosity, viewModel) {
+            CapabilitySwitch(stringResource(R.string.settings_supports_verbosity), uiState.settings.provider.supportsVerbosity, viewModel) {
                 it.copy(supportsVerbosity = it.supportsVerbosity.not())
             }
-            CapabilitySwitch("Supports structured outputs", uiState.settings.provider.supportsStructuredOutputs, viewModel) {
+            CapabilitySwitch(stringResource(R.string.settings_supports_structured_outputs), uiState.settings.provider.supportsStructuredOutputs, viewModel) {
                 it.copy(supportsStructuredOutputs = it.supportsStructuredOutputs.not())
             }
         }
 
-        SectionCard(title = "Compatibility mapping") {
-            SimpleTextField("Reasoning path", uiState.settings.provider.reasoningMapping.path) { value ->
+        SectionCard(title = stringResource(R.string.settings_compat_mapping_title)) {
+            SimpleTextField(stringResource(R.string.settings_reasoning_path_label), uiState.settings.provider.reasoningMapping.path) { value ->
                 viewModel.updateSettings { settings ->
                     settings.copy(
                         provider = settings.provider.copy(
@@ -431,7 +453,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            SimpleTextField("Verbosity path", uiState.settings.provider.verbosityMapping.path) { value ->
+            SimpleTextField(stringResource(R.string.settings_verbosity_path_label), uiState.settings.provider.verbosityMapping.path) { value ->
                 viewModel.updateSettings { settings ->
                     settings.copy(
                         provider = settings.provider.copy(
@@ -440,7 +462,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            SimpleTextField("Web/search path", uiState.settings.provider.webSearchMapping.path) { value ->
+            SimpleTextField(stringResource(R.string.settings_web_search_path_label), uiState.settings.provider.webSearchMapping.path) { value ->
                 viewModel.updateSettings { settings ->
                     settings.copy(
                         provider = settings.provider.copy(
@@ -449,7 +471,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            SimpleTextField("Web enabled JSON", uiState.settings.provider.webSearchMapping.enabledJson) { value ->
+            SimpleTextField(stringResource(R.string.settings_web_enabled_json_label), uiState.settings.provider.webSearchMapping.enabledJson) { value ->
                 viewModel.updateSettings { settings ->
                     settings.copy(
                         provider = settings.provider.copy(
@@ -458,7 +480,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            SimpleTextField("Web disabled JSON", uiState.settings.provider.webSearchMapping.disabledJson) { value ->
+            SimpleTextField(stringResource(R.string.settings_web_disabled_json_label), uiState.settings.provider.webSearchMapping.disabledJson) { value ->
                 viewModel.updateSettings { settings ->
                     settings.copy(
                         provider = settings.provider.copy(
@@ -469,9 +491,9 @@ fun SettingsScreen(
             }
         }
 
-        SectionCard(title = "Advanced") {
+        SectionCard(title = stringResource(R.string.settings_advanced_title)) {
             SimpleTextField(
-                label = "Extra headers, one per line",
+                label = stringResource(R.string.settings_extra_headers_label),
                 value = uiState.settings.provider.extraHeaders,
                 minLines = 2,
                 maxLines = 6,
@@ -481,7 +503,7 @@ fun SettingsScreen(
                 }
             }
             SimpleTextField(
-                label = "Extra body JSON object",
+                label = stringResource(R.string.settings_extra_body_json_label),
                 value = uiState.settings.provider.extraBodyJson,
                 minLines = 4,
                 maxLines = 10,
@@ -492,15 +514,15 @@ fun SettingsScreen(
             }
         }
 
-        SectionCard(title = "Notes") {
+        SectionCard(title = stringResource(R.string.settings_notes_title)) {
             Text(
-                text = "API keys are stored with Android Keystore-backed encryption. Responses API is the preferred path for reasoning, verbosity, previous_response_id chaining, web search, response storage, and structured outputs.",
+                text = stringResource(R.string.settings_notes_body_one),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
             Text(
-                text = "For generic compatible endpoints, leave unsupported mappings blank and override edge cases with Extra body JSON.",
+                text = stringResource(R.string.settings_notes_body_two),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -524,7 +546,9 @@ private fun SettingsOverview(uiState: RelayChatUiState) {
         modifier = Modifier.fillMaxWidth(),
         accent = MaterialTheme.colorScheme.primary,
     ) {
-        RelaySectionEyebrow(text = "Configuration")
+        val context = LocalContext.current
+
+        RelaySectionEyebrow(text = stringResource(R.string.settings_configuration_eyebrow))
         Text(
             text = uiState.settings.provider.displayName,
             style = MaterialTheme.typography.displaySmall,
@@ -544,7 +568,11 @@ private fun SettingsOverview(uiState: RelayChatUiState) {
                 highlight = MaterialTheme.colorScheme.primary,
             )
             RelayInfoPill(
-                text = if (uiState.apiKey.isBlank()) "API key missing" else "API key stored",
+                text = if (uiState.apiKey.isBlank()) {
+                    stringResource(R.string.settings_key_missing)
+                } else {
+                    stringResource(R.string.settings_key_stored)
+                },
                 icon = Icons.Outlined.Lock,
                 highlight = if (uiState.apiKey.isBlank()) {
                     MaterialTheme.colorScheme.error
@@ -553,23 +581,29 @@ private fun SettingsOverview(uiState: RelayChatUiState) {
                 },
             )
             RelayInfoPill(
-                text = "Reasoning ${uiState.settings.defaultControls.reasoningEffort.name.lowercase()}",
+                text = stringResource(
+                    R.string.settings_summary_reasoning,
+                    context.stringFor(uiState.settings.defaultControls.reasoningEffort),
+                ),
                 icon = Icons.Outlined.AutoAwesome,
                 highlight = MaterialTheme.colorScheme.secondary,
             )
             RelayInfoPill(
-                text = uiState.settings.provider.apiStyle.name.lowercase(),
+                text = context.stringFor(uiState.settings.provider.apiStyle),
                 icon = Icons.Outlined.Api,
                 highlight = MaterialTheme.colorScheme.tertiary,
             )
             RelayInfoPill(
-                text = "Theme ${uiState.settings.themeMode.label}",
+                text = stringResource(
+                    R.string.settings_summary_theme,
+                    stringResource(uiState.settings.themeMode.labelRes()),
+                ),
                 icon = Icons.Outlined.AutoAwesome,
                 highlight = MaterialTheme.colorScheme.primary,
             )
         }
         Text(
-            text = "Chat, history, and settings now share the same live configuration summary so it is obvious which provider and controls are active before you send.",
+            text = stringResource(R.string.settings_configuration_summary_body),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -578,15 +612,15 @@ private fun SettingsOverview(uiState: RelayChatUiState) {
 
 @Composable
 private fun ImportSummarySection(summary: ImportedConfigSummary) {
-    SectionCard(title = "Last imported config") {
-        KeyValueRow("Provider", summary.providerName)
-        KeyValueRow("Model", summary.model)
-        KeyValueRow("Endpoint", summary.endpoint)
-        KeyValueRow("Reasoning", summary.reasoning)
-        KeyValueRow("Verbosity", summary.verbosity)
-        KeyValueRow("Web/search", summary.webSearch)
-        KeyValueRow("Provider storage", summary.responseStorage)
-        KeyValueRow("API key env", summary.apiKeyEnvName)
+    SectionCard(title = stringResource(R.string.settings_last_imported_title)) {
+        KeyValueRow(stringResource(R.string.settings_provider_label), summary.providerName)
+        KeyValueRow(stringResource(R.string.settings_model_short_label), summary.model)
+        KeyValueRow(stringResource(R.string.settings_endpoint_short_label), summary.endpoint)
+        KeyValueRow(stringResource(R.string.settings_reasoning_short_label), summary.reasoning)
+        KeyValueRow(stringResource(R.string.settings_verbosity_short_label), summary.verbosity)
+        KeyValueRow(stringResource(R.string.settings_web_search_short_label), summary.webSearch)
+        KeyValueRow(stringResource(R.string.settings_provider_storage_short_label), summary.responseStorage)
+        KeyValueRow(stringResource(R.string.settings_api_key_env_label), summary.apiKeyEnvName)
     }
 }
 
@@ -616,7 +650,7 @@ private fun ThemeModeSelector(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Color mode",
+            text = stringResource(R.string.settings_theme_title),
             style = MaterialTheme.typography.labelLarge,
         )
         FlowRow(
@@ -627,7 +661,37 @@ private fun ThemeModeSelector(
                 FilterChip(
                     selected = currentMode == mode,
                     onClick = { onSelected(mode) },
-                    label = { Text(mode.label) },
+                    label = { Text(stringResource(mode.labelRes())) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LanguageSelector(
+    currentLocale: AppLocale,
+    onSelected: (AppLocale) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.settings_language_title),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AppLocale.entries.forEach { locale ->
+                FilterChip(
+                    selected = currentLocale == locale,
+                    onClick = { onSelected(locale) },
+                    label = { Text(stringResource(locale.labelRes())) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -679,7 +743,7 @@ private fun <T> EnumSelector(
                 },
                 confirmButton = {},
                 dismissButton = {
-                    TextButton(onClick = { expanded = false }) { Text("Close") }
+                    TextButton(onClick = { expanded = false }) { Text(stringResource(R.string.action_close)) }
                 },
             )
         }
@@ -797,7 +861,7 @@ private fun ImportConfigDialog(
 
             [model_providers.intelalloc]
             name = "intelalloc"
-            base_url = "https://www.intelalloc.com"
+            base_url = "https://backend.intelalloc.com"
             wire_api = "responses"
             requires_openai_auth = true
             """.trimIndent()
@@ -808,11 +872,11 @@ private fun ImportConfigDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
         shape = RoundedCornerShape(28.dp),
-        title = { Text("Import Codex config") },
+        title = { Text(stringResource(R.string.settings_import_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Paste a Codex CLI style config. The importer recognizes fields like model_provider, model, network_access, and [model_providers.<name>].",
+                    text = stringResource(R.string.settings_import_dialog_body),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 OutlinedTextField(
@@ -827,17 +891,12 @@ private fun ImportConfigDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onImport(rawConfig) }) { Text("Import") }
+            TextButton(onClick = { onImport(rawConfig) }) { Text(stringResource(R.string.action_import)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     )
 }
 
-private val AppThemeMode.label: String
-    get() = when (this) {
-        AppThemeMode.SYSTEM -> "Follow system"
-        AppThemeMode.LIGHT -> "Light"
-        AppThemeMode.DARK -> "Dark"
-    }
+

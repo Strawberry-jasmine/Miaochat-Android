@@ -2,6 +2,7 @@ package com.example.relaychat.data.threads
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import com.example.relaychat.R
 import com.example.relaychat.core.model.ChatMessage
 import com.example.relaychat.core.model.ChatRole
 import com.example.relaychat.core.model.ChatThread
@@ -40,15 +41,15 @@ class ThreadRepository(
                 writeSelectedThreadId(threadId)
                 threadId
             }
-            else -> createThreadLocked(title = "New Chat", select = true)
+            else -> createThreadLocked(title = defaultThreadTitle(), select = true)
         }
     }
 
     suspend fun createThread(
-        title: String = "New Chat",
+        title: String? = null,
         select: Boolean = true,
     ): String = mutex.withLock {
-        createThreadLocked(title, select)
+        createThreadLocked(title ?: defaultThreadTitle(), select)
     }
 
     suspend fun selectThread(threadId: String) {
@@ -65,7 +66,7 @@ class ThreadRepository(
             val remainingThreads = loadThreads()
             val selectedThreadId = readSelectedThreadId()
             when {
-                remainingThreads.isEmpty() -> createThreadLocked("New Chat", true)
+                remainingThreads.isEmpty() -> createThreadLocked(defaultThreadTitle(), true)
                 selectedThreadId == threadId -> writeSelectedThreadId(remainingThreads.first().id)
             }
         }
@@ -96,7 +97,11 @@ class ThreadRepository(
         select: Boolean = true,
     ): String? = mutex.withLock {
         val thread = getThread(threadId) ?: return@withLock null
-        val duplicated = ThreadMutations.duplicateThread(thread)
+        val duplicated = ThreadMutations.duplicateThread(
+            thread = thread,
+            copySuffix = context.getString(R.string.thread_copy_suffix),
+            defaultTitle = defaultThreadTitle(),
+        )
         replaceThreadLocked(duplicated)
         if (select) {
             writeSelectedThreadId(duplicated.id)
@@ -110,7 +115,12 @@ class ThreadRepository(
         select: Boolean = true,
     ): String? = mutex.withLock {
         val thread = getThread(threadId) ?: return@withLock null
-        val branched = ThreadMutations.branchThread(thread, throughMessageId) ?: return@withLock null
+        val branched = ThreadMutations.branchThread(
+            thread = thread,
+            throughMessageId = throughMessageId,
+            branchSuffix = context.getString(R.string.thread_branch_suffix),
+            defaultTitle = defaultThreadTitle(),
+        ) ?: return@withLock null
         replaceThreadLocked(branched)
         if (select) {
             writeSelectedThreadId(branched.id)
@@ -126,7 +136,7 @@ class ThreadRepository(
             val thread = getThread(threadId) ?: return@withLock
             val updatedThread = if (throughMessageId == null) {
                 thread.copy(
-                    title = "New Chat",
+                    title = defaultThreadTitle(),
                     messages = emptyList(),
                     updatedAt = System.currentTimeMillis(),
                     lastResponseId = null,
@@ -150,7 +160,12 @@ class ThreadRepository(
     suspend fun removeLastTurn(threadId: String) {
         mutex.withLock {
             val thread = getThread(threadId) ?: return@withLock
-            replaceThreadLocked(ThreadMutations.removeLastTurn(thread))
+            replaceThreadLocked(
+                ThreadMutations.removeLastTurn(
+                    thread = thread,
+                    defaultTitle = defaultThreadTitle(),
+                )
+            )
         }
     }
 
@@ -160,7 +175,13 @@ class ThreadRepository(
     ) {
         mutex.withLock {
             val thread = getThread(threadId) ?: return@withLock
-            replaceThreadLocked(ThreadMutations.appendMessage(thread, message))
+            replaceThreadLocked(
+                ThreadMutations.appendMessage(
+                    thread = thread,
+                    message = message,
+                    defaultTitle = defaultThreadTitle(),
+                )
+            )
         }
     }
 
@@ -205,7 +226,10 @@ class ThreadRepository(
     suspend fun cleanupIncompleteAssistantMessages() {
         mutex.withLock {
             loadThreads().forEach { thread ->
-                val sanitized = ThreadMutations.removeTrailingEmptyAssistantMessages(thread)
+                val sanitized = ThreadMutations.removeTrailingEmptyAssistantMessages(
+                    thread = thread,
+                    defaultTitle = defaultThreadTitle(),
+                )
                 if (sanitized != thread) {
                     replaceThreadLocked(sanitized)
                 }
@@ -217,7 +241,7 @@ class ThreadRepository(
         title: String,
         select: Boolean,
     ): String {
-        val normalizedTitle = title.trim().ifEmpty { "New Chat" }
+        val normalizedTitle = title.trim().ifEmpty { defaultThreadTitle() }
         val thread = ChatThread(title = normalizedTitle)
         replaceThreadLocked(thread)
         if (select) {
@@ -225,6 +249,8 @@ class ThreadRepository(
         }
         return thread.id
     }
+
+    private fun defaultThreadTitle(): String = context.getString(R.string.thread_new_chat)
 
     private suspend fun replaceThreadLocked(thread: ChatThread) {
         dao.upsertThread(thread.toEntity())

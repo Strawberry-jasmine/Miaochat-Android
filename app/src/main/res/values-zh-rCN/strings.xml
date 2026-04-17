@@ -1,0 +1,280 @@
+<resources>
+    <string name="app_name">Miaochat</string>
+
+    <string name="nav_chat">聊天</string>
+    <string name="nav_settings">设置</string>
+
+    <string name="action_dismiss">知道了</string>
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_close">关闭</string>
+    <string name="action_import">导入</string>
+    <string name="action_open">打开</string>
+    <string name="action_duplicate">创建副本</string>
+    <string name="action_rename">重命名</string>
+    <string name="action_delete">删除</string>
+    <string name="action_remove">移除</string>
+    <string name="action_clear">清除</string>
+    <string name="action_clear_thread">清空会话</string>
+    <string name="action_new_chat">新对话</string>
+    <string name="action_copy">复制</string>
+    <string name="action_copy_transcript">复制会话记录</string>
+    <string name="action_regenerate">重新生成</string>
+    <string name="action_regenerate_last_reply">重新生成上一条回复</string>
+    <string name="action_use_as_draft">用作草稿</string>
+    <string name="action_branch_thread">分支会话</string>
+
+    <string name="status_enabled">已开启</string>
+    <string name="status_disabled">已关闭</string>
+
+    <string name="thread_new_chat">新对话</string>
+    <string name="thread_copy_suffix"> 副本</string>
+    <string name="thread_branch_suffix"> 分支</string>
+    <string name="thread_rename_title">重命名会话</string>
+    <string name="error_request_failed_title">请求未完成</string>
+    <string name="error_request_failed_generic">请求失败。</string>
+    <string name="error_request_in_progress">已有回复正在生成。</string>
+    <string name="error_no_active_thread">当前没有可用会话。</string>
+    <string name="error_provider_image_disabled">当前供应商配置未开启图片输入。</string>
+    <string name="error_api_key_before_send">发送前请先在设置中填写 API Key。</string>
+    <string name="error_no_reply_to_regenerate">当前没有可重新生成的助手回复。</string>
+    <string name="error_api_key_before_regenerate">重新生成前请先在设置中填写 API Key。</string>
+    <string name="error_import_failed">导入失败，请检查配置格式后重试。</string>
+
+    <string name="app_locale_system">跟随系统</string>
+    <string name="app_locale_english">English</string>
+    <string name="app_locale_simplified_chinese">简体中文</string>
+
+    <string name="theme_mode_system">跟随系统</string>
+    <string name="theme_mode_light">浅色</string>
+    <string name="theme_mode_dark">深色</string>
+
+    <string name="provider_api_style_responses">Responses API</string>
+    <string name="provider_api_style_chat_completions">Chat Completions API</string>
+
+    <string name="reasoning_none">无</string>
+    <string name="reasoning_minimal">极低</string>
+    <string name="reasoning_low">低</string>
+    <string name="reasoning_medium">中</string>
+    <string name="reasoning_high">高</string>
+    <string name="reasoning_xhigh">极高</string>
+
+    <string name="verbosity_low">简洁</string>
+    <string name="verbosity_medium">标准</string>
+    <string name="verbosity_high">详细</string>
+
+    <string name="tool_choice_auto">自动</string>
+    <string name="tool_choice_none">不使用</string>
+    <string name="tool_choice_required">必须使用</string>
+
+    <string name="response_format_text">文本</string>
+    <string name="response_format_json_object">JSON 对象</string>
+    <string name="response_format_json_schema">JSON Schema</string>
+
+    <string name="provider_preset_intelalloc_title">intelalloc Codex</string>
+    <string name="provider_preset_intelalloc_detail">适用于 intelalloc Codex 风格 Responses 端点的预设。</string>
+    <string name="provider_preset_openai_responses_title">OpenAI Responses</string>
+    <string name="provider_preset_openai_responses_detail">更适合推理、详细度、联网搜索、响应存储和结构化输出。</string>
+    <string name="provider_preset_openai_chat_title">OpenAI Chat</string>
+    <string name="provider_preset_openai_chat_detail">适用于仅提供旧版 Chat 端点的兼容方案。</string>
+    <string name="provider_preset_openrouter_title">OpenRouter Compatible</string>
+    <string name="provider_preset_openrouter_detail">适合 OpenAI 风格第三方路由端点的实用预设。</string>
+    <string name="provider_preset_lm_studio_title">LM Studio Local</string>
+    <string name="provider_preset_lm_studio_detail">连接同一网络中的本地 OpenAI 兼容服务。</string>
+    <string name="provider_preset_custom_title">Custom</string>
+    <string name="provider_preset_custom_detail">从你的自定义端点开始，再手动调整全部设置。</string>
+
+    <string name="tuning_preset_precise_title">精准</string>
+    <string name="tuning_preset_precise_detail">降低随机性，让回答更稳定。</string>
+    <string name="tuning_preset_balanced_title">平衡</string>
+    <string name="tuning_preset_balanced_detail">适合日常聊天的通用默认值。</string>
+    <string name="tuning_preset_deep_title">深入</string>
+    <string name="tuning_preset_deep_detail">在可用时提高推理强度并启用联网能力。</string>
+
+    <string name="pending_title_thinking">思考中</string>
+    <string name="pending_title_searching">联网搜索中</string>
+    <string name="pending_title_streaming">正在生成回复</string>
+    <string name="pending_subtitle_thinking">正在整理请求，并准备输出第一批内容。</string>
+    <string name="pending_subtitle_post_search_thinking">正在整合已收集的来源，准备最终回答。</string>
+    <string name="pending_subtitle_searching">正在收集实时来源、排序结果，并判断应引用哪些内容。</string>
+    <string name="pending_subtitle_searching_slow">仍在收集实时来源。在 intelalloc 上，联网搜索在首段回复前可能会更慢一些。</string>
+    <string name="pending_subtitle_streaming_blank">正在实时起草开头内容。</string>
+    <string name="pending_subtitle_streaming">回复正在实时到达，界面会自动停留在最新内容处。</string>
+    <string name="pending_state_thinking">思考中</string>
+    <string name="pending_state_searching">搜索中</string>
+    <string name="pending_state_streaming">生成中</string>
+    <string name="pending_timeline_thinking">思考</string>
+    <string name="pending_timeline_searching">搜索</string>
+    <string name="pending_timeline_answer">回复</string>
+    <string name="pending_detail_thinking">正在思考这个请求</string>
+    <string name="pending_detail_reasoning">正在进行推理</string>
+    <string name="pending_detail_searching">正在联网搜索</string>
+    <string name="pending_detail_drafting">正在生成回复</string>
+
+    <string name="chat_header_subtitle_empty">一个全新的会话，等你发出下一条消息。</string>
+    <string name="chat_header_subtitle_reply_in_progress">%1$d 条消息 - 回复生成中</string>
+    <string name="chat_header_subtitle_message_one">此会话中有 1 条消息</string>
+    <string name="chat_header_subtitle_message_many">此会话中有 %1$d 条消息</string>
+    <string name="chat_empty_state_title">从新会话开始</string>
+    <string name="chat_empty_state_body">%1$s 会将会话历史保存在本地。通过下方会话栏回看旧会话、从任意消息分支，或同时保留多条工作线索。</string>
+    <string name="chat_menu_desc">会话操作</string>
+    <string name="chat_note_draft_user">已从此前的用户消息载入草稿</string>
+    <string name="chat_note_draft_assistant">已从此前的助手回复载入草稿</string>
+    <string name="chat_note_regenerating">正在重新生成上一条回复</string>
+    <string name="chat_controls_reasoning">推理</string>
+    <string name="chat_controls_verbosity">详细度</string>
+    <string name="chat_controls_tune">调整</string>
+    <string name="chat_controls_less">收起</string>
+    <string name="chat_controls_custom">自定义</string>
+    <string name="chat_controls_web_on">联网开启</string>
+    <string name="chat_controls_web_off">联网关闭</string>
+    <string name="chat_controls_web_unavailable">不支持联网</string>
+    <string name="chat_controls_thread_fresh">新会话</string>
+    <string name="chat_busy_default_detail">仍有一条回复在后台继续生成。</string>
+    <string name="chat_composer_attachment_title">已附加图片</string>
+    <string name="chat_composer_attach_image_desc">添加图片</string>
+    <string name="chat_composer_placeholder_busy">正在生成回复...</string>
+    <string name="chat_composer_placeholder_idle">给 Miaochat 发消息</string>
+    <string name="chat_composer_send_desc">发送</string>
+    <string name="chat_composer_thinking_button">思考中</string>
+
+    <string name="history_rail_eyebrow">会话</string>
+    <string name="history_rail_title">最近会话</string>
+    <string name="history_search_label">搜索会话</string>
+    <string name="history_section_matches">匹配结果</string>
+    <string name="history_section_current">当前会话</string>
+    <string name="history_filter_all">全部</string>
+    <string name="history_filter_today">今天</string>
+    <string name="history_filter_this_week">本周</string>
+    <string name="history_filter_earlier">更早</string>
+    <string name="history_empty_thread_preview">空会话</string>
+    <string name="history_empty_title">还没有保存的会话</string>
+    <string name="history_empty_body">开始一段新聊天，会话历史会显示在这里。</string>
+    <string name="history_no_match_title">没有匹配的会话</string>
+    <string name="history_no_match_body">换个关键词，或放宽筛选条件试试。</string>
+    <string name="history_badge_current">当前</string>
+    <string name="history_badge_replying">生成中</string>
+    <string name="history_expand_desc">展开会话栏</string>
+    <string name="history_collapse_desc">收起会话栏</string>
+    <string name="history_more_actions_desc">更多会话操作</string>
+    <string name="history_current_thread_actions_title">当前会话</string>
+
+    <string name="settings_configuration_eyebrow">配置概览</string>
+    <string name="settings_appearance_title">外观</string>
+    <string name="settings_language_title">语言</string>
+    <string name="settings_language_description">即时切换应用语言，并在下次启动时继续保留。</string>
+    <string name="settings_theme_title">颜色模式</string>
+    <string name="settings_theme_description">主题会立即同步到聊天、会话栏、设置页、卡片和控制项。跟随系统会随 Android 深浅色模式变化。</string>
+    <string name="settings_quick_setup_title">快速配置</string>
+    <string name="settings_import_codex_config">导入 Codex 配置</string>
+    <string name="settings_use_intelalloc_preset">使用 intelalloc 预设</string>
+    <string name="settings_use_openai_responses_preset">使用 OpenAI Responses 预设</string>
+    <string name="settings_preset_title">预设</string>
+    <string name="settings_provider_preset_label">供应商预设</string>
+    <string name="settings_quality_presets_title">回答预设</string>
+    <string name="settings_endpoint_title">端点</string>
+    <string name="settings_api_style_label">API 风格</string>
+    <string name="settings_display_name_label">显示名称</string>
+    <string name="settings_base_url_label">基础 URL</string>
+    <string name="settings_path_label">路径</string>
+    <string name="settings_api_key_label">API Key</string>
+    <string name="settings_model_label">模型</string>
+    <string name="settings_instructions_title">指令</string>
+    <string name="settings_instructions_label">指令 / System Prompt</string>
+    <string name="settings_default_controls_title">默认聊天控制</string>
+    <string name="settings_reasoning_label">推理</string>
+    <string name="settings_verbosity_label">详细度</string>
+    <string name="settings_web_search_by_default">默认开启联网搜索</string>
+    <string name="settings_response_storage">在供应商侧保存响应</string>
+    <string name="settings_tool_choice_label">工具选择</string>
+    <string name="settings_sampling_title">采样与确定性</string>
+    <string name="settings_enable_temperature">启用 Temperature</string>
+    <string name="settings_temperature_label">Temperature</string>
+    <string name="settings_enable_top_p">启用 Top P</string>
+    <string name="settings_top_p_label">Top P</string>
+    <string name="settings_enable_max_output_tokens">限制最大输出 Token</string>
+    <string name="settings_max_output_tokens_label">最大输出 Token</string>
+    <string name="settings_enable_seed">启用 Seed</string>
+    <string name="settings_seed_label">Seed</string>
+    <string name="settings_structured_outputs_title">结构化输出</string>
+    <string name="settings_response_format_label">响应格式</string>
+    <string name="settings_schema_name_label">Schema 名称</string>
+    <string name="settings_schema_description_label">Schema 描述</string>
+    <string name="settings_schema_strict">严格 Schema</string>
+    <string name="settings_json_schema_label">JSON Schema</string>
+    <string name="settings_capabilities_title">能力开关</string>
+    <string name="settings_supports_image_input">支持图片输入</string>
+    <string name="settings_supports_web_search">支持联网搜索</string>
+    <string name="settings_supports_streaming">支持流式输出</string>
+    <string name="settings_supports_verbosity">支持详细度</string>
+    <string name="settings_supports_structured_outputs">支持结构化输出</string>
+    <string name="settings_compat_mapping_title">兼容字段映射</string>
+    <string name="settings_reasoning_path_label">推理字段路径</string>
+    <string name="settings_verbosity_path_label">详细度字段路径</string>
+    <string name="settings_web_search_path_label">联网搜索字段路径</string>
+    <string name="settings_web_enabled_json_label">联网开启 JSON</string>
+    <string name="settings_web_disabled_json_label">联网关闭 JSON</string>
+    <string name="settings_advanced_title">高级</string>
+    <string name="settings_extra_headers_label">额外请求头（每行一个）</string>
+    <string name="settings_extra_body_json_label">额外 Body JSON 对象</string>
+    <string name="settings_notes_title">说明</string>
+    <string name="settings_notes_body_one">API Key 会通过 Android Keystore 加密保存。Responses API 是推理、详细度、previous_response_id 串联、联网搜索、响应存储和结构化输出的首选方案。</string>
+    <string name="settings_notes_body_two">面对通用兼容端点时，可将不支持的映射留空，并用 Extra Body JSON 处理特殊情况。</string>
+    <string name="settings_configuration_summary_body">聊天、会话和设置共用同一份实时配置摘要，让你在发送前就能明确当前启用的供应商和控制项。</string>
+    <string name="settings_key_missing">未填写 API Key</string>
+    <string name="settings_key_stored">API Key 已保存</string>
+    <string name="settings_summary_reasoning">推理 %1$s</string>
+    <string name="settings_summary_theme">主题 %1$s</string>
+    <string name="settings_last_imported_title">上次导入配置</string>
+    <string name="settings_import_dialog_title">导入 Codex 配置</string>
+    <string name="settings_import_dialog_body">粘贴一段 Codex CLI 风格配置。导入器会识别 model_provider、model、network_access 和 [model_providers.&lt;name&gt;] 等字段。</string>
+    <string name="settings_provider_label">供应商</string>
+    <string name="settings_model_short_label">模型</string>
+    <string name="settings_endpoint_short_label">端点</string>
+    <string name="settings_reasoning_short_label">推理</string>
+    <string name="settings_verbosity_short_label">详细度</string>
+    <string name="settings_web_search_short_label">联网搜索</string>
+    <string name="settings_provider_storage_short_label">响应存储</string>
+    <string name="settings_api_key_env_label">API Key 环境变量</string>
+
+    <string name="status_provider_preset_applied">%1$s 预设已应用。</string>
+    <string name="status_provider_preset_applied_with_key">%1$s 预设已应用。发送前请补充或确认 API Key。</string>
+    <string name="status_quality_preset_applied">%1$s 预设已应用到默认控制项。</string>
+    <string name="status_config_imported">%1$s 配置已导入。如有需要，请补充 API Key。</string>
+
+    <string name="notification_channel_background_replies">后台回复</string>
+    <string name="notification_channel_background_replies_description">让 Miaochat 在应用退到后台后继续生成回复。</string>
+    <string name="notification_reason_background_send">应用在后台时继续生成回复</string>
+    <string name="notification_reason_background_regenerate">在后台重新生成回复</string>
+    <string name="notification_background_title">后台思考中</string>
+    <string name="notification_subtext_background">后台</string>
+    <string name="notification_title_format">%1$s：%2$s</string>
+
+    <string name="transcript_role_user">你</string>
+    <string name="transcript_role_assistant">助手</string>
+    <string name="transcript_empty_text">[无文本]</string>
+
+    <plurals name="thread_message_count">
+        <item quantity="other">%1$d 条消息</item>
+    </plurals>
+
+    <plurals name="history_thread_total_count">
+        <item quantity="other">%1$d 个会话</item>
+    </plurals>
+
+    <plurals name="history_thread_matching_count">
+        <item quantity="other">%1$d 个匹配会话</item>
+    </plurals>
+
+    <plurals name="history_hits_count">
+        <item quantity="other">%1$d 处命中</item>
+    </plurals>
+
+    <plurals name="history_message_short_count">
+        <item quantity="other">%1$d 条消息</item>
+    </plurals>
+
+    <plurals name="transcript_attachment_count">
+        <item quantity="other">[附件：%1$d 张图片]</item>
+    </plurals>
+</resources>

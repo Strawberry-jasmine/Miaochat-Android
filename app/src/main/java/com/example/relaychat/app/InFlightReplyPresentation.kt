@@ -8,7 +8,7 @@ internal fun beginInFlightAssistantReply(
 ): InFlightAssistantReply = InFlightAssistantReply(
     threadId = threadId,
     stage = InFlightAssistantStage.THINKING,
-    detail = "sending request",
+    detail = "thinking",
     startedAtMs = nowMs,
     stageChangedAtMs = nowMs,
     visitedStages = listOf(InFlightAssistantStage.THINKING),
@@ -58,8 +58,31 @@ internal data class PendingReplyVisuals(
     val timeline: List<PendingTimelineEntry>,
 )
 
+internal data class PendingReplyTextSet(
+    val thinkingTitle: String = "Thinking",
+    val searchingTitle: String = "Searching the Web",
+    val streamingTitle: String = "Streaming Reply",
+    val thinkingSubtitle: String = "Preparing the request and warming up the first tokens.",
+    val postSearchThinkingSubtitle: String = "Synthesizing the gathered sources into a final answer.",
+    val searchingSubtitle: String = "Gathering live sources, ranking them, and deciding what to cite.",
+    val slowSearchingSubtitle: String = "Still gathering live sources. On intelalloc, live search can take longer before the first answer appears.",
+    val blankStreamingSubtitle: String = "Drafting the opening lines in real time.",
+    val streamingSubtitle: String = "The answer is arriving live. Auto-scroll stays pinned to the newest text.",
+    val thinkingStateLabel: String = "thinking",
+    val searchingStateLabel: String = "searching",
+    val streamingStateLabel: String = "streaming",
+    val thinkingTimelineLabel: String = "Think",
+    val searchingTimelineLabel: String = "Search",
+    val streamingTimelineLabel: String = "Answer",
+    val thinkingDetail: String = "Thinking through the request",
+    val reasoningDetail: String = "Reasoning through the request",
+    val searchingDetail: String = "Running live web search",
+    val draftingDetail: String = "Drafting reply",
+)
+
 internal fun pendingReplyVisuals(
     reply: InFlightAssistantReply,
+    textSet: PendingReplyTextSet = PendingReplyTextSet(),
     nowMs: Long = System.currentTimeMillis(),
 ): PendingReplyVisuals {
     val elapsedMs = max(0L, nowMs - reply.startedAtMs)
@@ -70,47 +93,47 @@ internal fun pendingReplyVisuals(
     )
 
     val title = when (reply.stage) {
-        InFlightAssistantStage.THINKING -> "Thinking"
-        InFlightAssistantStage.SEARCHING -> "Searching the web"
-        InFlightAssistantStage.STREAMING -> "Streaming answer"
+        InFlightAssistantStage.THINKING -> textSet.thinkingTitle
+        InFlightAssistantStage.SEARCHING -> textSet.searchingTitle
+        InFlightAssistantStage.STREAMING -> textSet.streamingTitle
     }
     val subtitle = when (reply.stage) {
         InFlightAssistantStage.THINKING -> if (InFlightAssistantStage.SEARCHING in reply.visitedStages) {
-            "Synthesizing the gathered sources into a final answer."
+            textSet.postSearchThinkingSubtitle
         } else {
-            "Preparing the request and warming up the first tokens."
+            textSet.thinkingSubtitle
         }
 
         InFlightAssistantStage.SEARCHING -> if (elapsedMs >= 15_000L) {
-            "Still gathering live sources. On intelalloc, live search can take longer before the first answer appears."
+            textSet.slowSearchingSubtitle
         } else {
-            "Gathering live sources, ranking them, and deciding what to cite."
+            textSet.searchingSubtitle
         }
 
         InFlightAssistantStage.STREAMING -> if (reply.text.isBlank()) {
-            "Drafting the opening lines in real time."
+            textSet.blankStreamingSubtitle
         } else {
-            "The answer is arriving live. Auto-scroll will stay pinned to the newest text."
+            textSet.streamingSubtitle
         }
     }
 
     return PendingReplyVisuals(
         stateLabel = when (reply.stage) {
-            InFlightAssistantStage.THINKING -> "thinking"
-            InFlightAssistantStage.SEARCHING -> "searching web"
-            InFlightAssistantStage.STREAMING -> "streaming"
+            InFlightAssistantStage.THINKING -> textSet.thinkingStateLabel
+            InFlightAssistantStage.SEARCHING -> textSet.searchingStateLabel
+            InFlightAssistantStage.STREAMING -> textSet.streamingStateLabel
         },
         title = title,
         subtitle = subtitle,
-        detail = friendlyPendingDetail(reply.detail),
+        detail = friendlyPendingDetail(reply.detail, textSet),
         elapsedLabel = formatElapsed(elapsedMs),
         timeline = timelineStages.map { stage ->
             PendingTimelineEntry(
                 stage = stage,
                 label = when (stage) {
-                    InFlightAssistantStage.THINKING -> "Think"
-                    InFlightAssistantStage.SEARCHING -> "Search"
-                    InFlightAssistantStage.STREAMING -> "Answer"
+                    InFlightAssistantStage.THINKING -> textSet.thinkingTimelineLabel
+                    InFlightAssistantStage.SEARCHING -> textSet.searchingTimelineLabel
+                    InFlightAssistantStage.STREAMING -> textSet.streamingTimelineLabel
                 },
                 status = when {
                     stage == reply.stage -> PendingTimelineStatus.ACTIVE
@@ -122,11 +145,16 @@ internal fun pendingReplyVisuals(
     )
 }
 
-private fun friendlyPendingDetail(detail: String): String = when (detail.lowercase()) {
-    "sending request" -> "Sending request"
-    "reasoning" -> "Reasoning through the request"
-    "searching web" -> "Running live web search"
-    "drafting reply" -> "Drafting reply"
+private fun friendlyPendingDetail(
+    detail: String,
+    textSet: PendingReplyTextSet,
+): String = when (detail.lowercase()) {
+    "sending request",
+    "thinking",
+    -> textSet.thinkingDetail
+    "reasoning" -> textSet.reasoningDetail
+    "searching web" -> textSet.searchingDetail
+    "drafting reply" -> textSet.draftingDetail
     else -> detail.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
 

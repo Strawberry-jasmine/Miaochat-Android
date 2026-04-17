@@ -22,6 +22,24 @@ class ThreadMutationsTest {
     }
 
     @Test
+    fun appendMessageAutoTitlesLocalizedUntitledThreadFromFirstUserMessage() {
+        val thread = ChatThread(title = "新对话", messages = emptyList())
+        val userMessage = ChatMessage(
+            role = ChatRole.USER,
+            text = "请总结最近的 Android 架构调整。"
+        )
+
+        val updated = ThreadMutations.appendMessage(
+            thread = thread,
+            message = userMessage,
+            defaultTitle = "新对话",
+        )
+
+        assertThat(updated.messages).hasSize(1)
+        assertThat(updated.title).isEqualTo("请总结最近的 Android 架构调整。")
+    }
+
+    @Test
     fun removeLastTurnDropsAssistantAndPreviousUser() {
         val thread = ChatThread(
             messages = listOf(
@@ -63,6 +81,25 @@ class ThreadMutationsTest {
     }
 
     @Test
+    fun branchThreadUsesInjectedLocalizedSuffix() {
+        val user = ChatMessage(role = ChatRole.USER, text = "第一条")
+        val assistant = ChatMessage(role = ChatRole.ASSISTANT, text = "回复")
+        val thread = ChatThread(
+            title = "当前会话",
+            messages = listOf(user, assistant),
+        )
+
+        val branched = ThreadMutations.branchThread(
+            thread = thread,
+            throughMessageId = assistant.id,
+            branchSuffix = " 分支",
+        )
+
+        requireNotNull(branched)
+        assertThat(branched.title).isEqualTo("当前会话 分支")
+    }
+
+    @Test
     fun duplicateThreadKeepsContentAndRenamesCopy() {
         val thread = ChatThread(
             title = "Existing",
@@ -75,6 +112,21 @@ class ThreadMutationsTest {
         assertThat(duplicated.title).isEqualTo("Existing Copy")
         assertThat(duplicated.messages).hasSize(1)
         assertThat(duplicated.messages.first().text).isEqualTo("Hello")
+    }
+
+    @Test
+    fun duplicateThreadUsesInjectedLocalizedSuffix() {
+        val thread = ChatThread(
+            title = "现有会话",
+            messages = listOf(ChatMessage(role = ChatRole.USER, text = "你好"))
+        )
+
+        val duplicated = ThreadMutations.duplicateThread(
+            thread = thread,
+            copySuffix = " 副本",
+        )
+
+        assertThat(duplicated.title).isEqualTo("现有会话 副本")
     }
 
     @Test

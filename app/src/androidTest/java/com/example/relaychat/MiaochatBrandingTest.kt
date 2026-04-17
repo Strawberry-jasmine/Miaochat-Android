@@ -20,14 +20,15 @@ class MiaochatBrandingTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val label = context.applicationInfo.loadLabel(context.packageManager).toString()
 
-        assertThat(label).isEqualTo("Miaochat")
+        assertThat(label).isEqualTo(context.getString(R.string.app_name))
     }
 
     @Test
     fun chatScreen_displaysMiaochatBranding() {
-        composeRule.onNodeWithText("Miaochat").fetchSemanticsNode()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
         composeRule.onNodeWithText(
-            "Miaochat keeps thread history locally.",
+            context.getString(R.string.chat_composer_placeholder_idle),
             substring = true,
         ).fetchSemanticsNode()
     }

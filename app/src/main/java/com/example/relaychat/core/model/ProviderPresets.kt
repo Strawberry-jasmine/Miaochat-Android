@@ -15,7 +15,7 @@ enum class ProviderPreset(
             presetId = "intelallocCodex",
             displayName = "intelalloc",
             apiStyle = ProviderApiStyle.RESPONSES,
-            baseUrl = "https://www.intelalloc.com",
+            baseUrl = "https://backend.intelalloc.com",
             path = "/responses",
             model = "gpt-5.4",
             instructionsPrompt = "You are a practical coding and problem-solving assistant. Be precise, keep answers actionable, and surface uncertainty briefly when needed.",

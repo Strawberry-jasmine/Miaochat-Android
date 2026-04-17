@@ -19,6 +19,12 @@ class RelayChatReleaseAcceptanceTest {
     private val instrumentation
         get() = InstrumentationRegistry.getInstrumentation()
 
+    private val targetContext
+        get() = instrumentation.targetContext
+
+    private val appPackage
+        get() = targetContext.packageName
+
     private val device: UiDevice
         get() = UiDevice.getInstance(instrumentation)
 
@@ -34,13 +40,18 @@ class RelayChatReleaseAcceptanceTest {
             dismissRequestFailedDialogIfPresent()
             openFreshChat()
 
-            requireObject(By.desc("Attach image"), 10_000).click()
+            requireObject(By.desc(stringRes(R.string.chat_composer_attach_image_desc)), 10_000).click()
             assertThat(device.wait(Until.hasObject(By.pkg(DOCUMENTS_UI_PACKAGE)), 10_000)).isTrue()
 
             openDownloadsRoot()
             selectFile(probeName)
 
-            assertThat(device.wait(Until.hasObject(By.text("Image attached")), 10_000)).isTrue()
+            assertThat(
+                device.wait(
+                    Until.hasObject(By.text(stringRes(R.string.chat_composer_attachment_title))),
+                    10_000,
+                )
+            ).isTrue()
 
             val composer = requireObject(By.clazz("android.widget.EditText"), 10_000)
             composer.text = "What exact word and number are shown inside the attached image?"
@@ -72,7 +83,7 @@ class RelayChatReleaseAcceptanceTest {
         launchReleaseApp()
         dismissPickerOrHomeResidue()
         openSettingsTab()
-        applyProviderPreset("Use intelalloc preset")
+        applyProviderPreset(stringRes(R.string.settings_use_intelalloc_preset))
         openChatTab()
 
         openFreshChat()
@@ -132,7 +143,7 @@ class RelayChatReleaseAcceptanceTest {
         launchReleaseApp()
         dismissPickerOrHomeResidue()
         openSettingsTab()
-        applyProviderPreset("Use OpenAI Responses preset")
+        applyProviderPreset(stringRes(R.string.settings_use_openai_responses_preset))
 
         openChatTab()
         openFreshChat()
@@ -182,7 +193,7 @@ class RelayChatReleaseAcceptanceTest {
 
         dismissRequestFailedDialogIfPresent()
         openSettingsTab()
-        applyProviderPreset("Use intelalloc preset")
+        applyProviderPreset(stringRes(R.string.settings_use_intelalloc_preset))
         assertThat(device.wait(Until.hasObject(By.text("intelalloc Codex")), 10_000)).isTrue()
         openChatTab()
         assertThat(device.wait(Until.hasObject(By.text("intelalloc | gpt-5.4")), 10_000)).isTrue()
@@ -200,10 +211,10 @@ class RelayChatReleaseAcceptanceTest {
         dismissPickerOrHomeResidue()
         dismissRequestFailedDialogIfPresent()
         openSettingsTab()
-        applyProviderPreset("Use intelalloc preset")
+        applyProviderPreset(stringRes(R.string.settings_use_intelalloc_preset))
         openChatTab()
 
-        assertThat(device.wait(Until.hasObject(By.text("History")), 10_000)).isTrue()
+        assertThat(device.wait(Until.hasObject(By.text(stringRes(R.string.history_rail_title))), 10_000)).isTrue()
 
         openFreshChat()
         requireObject(By.text("Balanced"), 10_000).click()
@@ -319,20 +330,20 @@ class RelayChatReleaseAcceptanceTest {
     }
 
     private fun launchReleaseApp() {
-        val launchIntent = instrumentation.targetContext.packageManager
-            .getLaunchIntentForPackage(RELEASE_PACKAGE)
+        val launchIntent = targetContext.packageManager
+            .getLaunchIntentForPackage(appPackage)
             ?.apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            ?: error("Release app $RELEASE_PACKAGE is not installed.")
+            ?: error("App $appPackage is not installed.")
 
-        instrumentation.targetContext.startActivity(launchIntent)
-        assertThat(device.wait(Until.hasObject(By.pkg(RELEASE_PACKAGE)), 10_000)).isTrue()
+        targetContext.startActivity(launchIntent)
+        assertThat(device.wait(Until.hasObject(By.pkg(appPackage)), 10_000)).isTrue()
         device.waitForIdle()
     }
 
     private fun forceStopReleaseApp() {
-        device.executeShellCommand("am force-stop $RELEASE_PACKAGE")
+        device.executeShellCommand("am force-stop $appPackage")
         device.waitForIdle()
     }
 
@@ -341,7 +352,7 @@ class RelayChatReleaseAcceptanceTest {
             when {
                 device.hasObject(By.pkg(DOCUMENTS_UI_PACKAGE)) -> {
                     device.pressBack()
-                    device.wait(Until.hasObject(By.pkg(RELEASE_PACKAGE)), 5_000)
+                    device.wait(Until.hasObject(By.pkg(appPackage)), 5_000)
                 }
 
                 device.hasObject(By.pkg(LAUNCHER_PACKAGE)) -> launchReleaseApp()
@@ -350,15 +361,16 @@ class RelayChatReleaseAcceptanceTest {
     }
 
     private fun dismissRequestFailedDialogIfPresent() {
-        if (device.hasObject(By.text("Request failed"))) {
-            device.findObject(By.text("OK"))?.click()
-            device.wait(Until.gone(By.text("Request failed")), 5_000)
+        val requestFailedTitle = stringRes(R.string.error_request_failed_title)
+        if (device.hasObject(By.text(requestFailedTitle))) {
+            device.findObject(By.text(stringRes(R.string.action_dismiss)))?.click()
+            device.wait(Until.gone(By.text(requestFailedTitle)), 5_000)
         }
     }
 
     private fun clickSendButton(timeoutMs: Long = 10_000) {
         device.waitForIdle()
-        val send = device.wait(Until.findObject(By.desc("Send")), timeoutMs)
+        val send = device.wait(Until.findObject(By.desc(stringRes(R.string.chat_composer_send_desc))), timeoutMs)
         if (send != null) {
             send.click()
             return
@@ -370,21 +382,20 @@ class RelayChatReleaseAcceptanceTest {
     }
 
     private fun openFreshChat() {
-        requireObject(By.desc("Actions"), 10_000).click()
-        requireObject(By.text("New chat"), 5_000).click()
+        requireObject(By.desc(stringRes(R.string.chat_menu_desc)), 10_000).click()
+        requireObject(By.text(stringRes(R.string.action_new_chat)), 5_000).click()
         device.waitForIdle()
     }
 
     private fun openHistory() {
-        val history = device.wait(Until.findObject(By.text("History")), 10_000)
-            ?: device.wait(Until.findObject(By.desc("History")), 10_000)
-            ?: error("Could not find the History entry point.")
-        history.click()
-        assertThat(device.wait(Until.hasObject(By.text("Search threads")), 10_000)).isTrue()
+        if (!device.hasObject(By.text(stringRes(R.string.history_search_label)))) {
+            requireObject(By.desc(stringRes(R.string.history_expand_desc)), 10_000).click()
+        }
+        assertThat(device.wait(Until.hasObject(By.text(stringRes(R.string.history_search_label))), 10_000)).isTrue()
     }
 
     private fun openSettingsTab() {
-        requireObject(By.text("Settings"), 10_000).click()
+        requireObject(By.text(stringRes(R.string.nav_settings)), 10_000).click()
         device.waitForIdle()
     }
 
@@ -418,7 +429,7 @@ class RelayChatReleaseAcceptanceTest {
     }
 
     private fun openChatTab() {
-        requireObject(By.text("Chat"), 10_000).click()
+        requireObject(By.text(stringRes(R.string.nav_chat)), 10_000).click()
         device.waitForIdle()
     }
 
@@ -561,10 +572,11 @@ class RelayChatReleaseAcceptanceTest {
         timeoutMs: Long,
     ) = device.wait(Until.findObject(selector), timeoutMs)
         ?: error("Timed out waiting for selector: $selector")
+
+    private fun stringRes(resId: Int): String = targetContext.getString(resId)
 }
 
 private const val TAG = "RelayChatAcceptance"
-private const val RELEASE_PACKAGE = "com.example.relaychat"
 private const val DOCUMENTS_UI_PACKAGE = "com.android.documentsui"
 private const val LAUNCHER_PACKAGE = "com.android.launcher3"
 private val THREAD_PATTERN = Regex("""thread=([0-9a-f-]+)""")

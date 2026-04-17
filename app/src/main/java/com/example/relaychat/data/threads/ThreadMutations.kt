@@ -3,15 +3,18 @@ package com.example.relaychat.data.threads
 import com.example.relaychat.core.model.ChatMessage
 import com.example.relaychat.core.model.ChatRole
 import com.example.relaychat.core.model.ChatThread
+import com.example.relaychat.core.model.LegacyDefaultThreadTitle
+import com.example.relaychat.core.model.isDefaultThreadTitle
 
 object ThreadMutations {
     fun appendMessage(
         thread: ChatThread,
         message: ChatMessage,
+        defaultTitle: String = LegacyDefaultThreadTitle,
     ): ChatThread {
         val updatedMessages = thread.messages + message
         val updatedTitle = if (
-            thread.title == "New Chat" &&
+            isDefaultThreadTitle(thread.title, defaultTitle) &&
             message.role == ChatRole.USER &&
             message.text.trim().isNotEmpty()
         ) {
@@ -27,7 +30,10 @@ object ThreadMutations {
         )
     }
 
-    fun removeLastTurn(thread: ChatThread): ChatThread {
+    fun removeLastTurn(
+        thread: ChatThread,
+        defaultTitle: String = LegacyDefaultThreadTitle,
+    ): ChatThread {
         val mutableMessages = thread.messages.toMutableList()
         while (mutableMessages.lastOrNull()?.role == ChatRole.ASSISTANT) {
             mutableMessages.removeAt(mutableMessages.lastIndex)
@@ -37,7 +43,7 @@ object ThreadMutations {
         }
 
         return thread.copy(
-            title = if (mutableMessages.isEmpty()) "New Chat" else thread.title,
+            title = if (mutableMessages.isEmpty()) defaultTitle else thread.title,
             messages = mutableMessages,
             updatedAt = System.currentTimeMillis(),
             lastResponseId = mutableMessages.lastOrNull { it.role == ChatRole.ASSISTANT }?.remoteResponseId,
@@ -47,6 +53,8 @@ object ThreadMutations {
     fun branchThread(
         thread: ChatThread,
         throughMessageId: String,
+        branchSuffix: String = " Branch",
+        defaultTitle: String = LegacyDefaultThreadTitle,
     ): ChatThread? {
         val index = thread.messages.indexOfFirst { it.id == throughMessageId }
         if (index < 0) {
@@ -54,8 +62,9 @@ object ThreadMutations {
         }
 
         val branchMessages = thread.messages.take(index + 1)
+        val baseTitle = if (thread.title.isBlank()) defaultTitle else thread.title
         return ChatThread(
-            title = thread.title + " Branch",
+            title = baseTitle + branchSuffix,
             messages = branchMessages,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
@@ -63,14 +72,21 @@ object ThreadMutations {
         )
     }
 
-    fun duplicateThread(thread: ChatThread): ChatThread = thread.copy(
+    fun duplicateThread(
+        thread: ChatThread,
+        copySuffix: String = " Copy",
+        defaultTitle: String = LegacyDefaultThreadTitle,
+    ): ChatThread = thread.copy(
         id = java.util.UUID.randomUUID().toString(),
-        title = thread.title + " Copy",
+        title = thread.title.ifBlank { defaultTitle } + copySuffix,
         createdAt = System.currentTimeMillis(),
         updatedAt = System.currentTimeMillis(),
     )
 
-    fun removeTrailingEmptyAssistantMessages(thread: ChatThread): ChatThread {
+    fun removeTrailingEmptyAssistantMessages(
+        thread: ChatThread,
+        defaultTitle: String = LegacyDefaultThreadTitle,
+    ): ChatThread {
         val trimmedMessages = thread.messages.toMutableList()
         while (
             trimmedMessages.lastOrNull()?.let { message ->
@@ -87,7 +103,7 @@ object ThreadMutations {
         }
 
         return thread.copy(
-            title = if (trimmedMessages.isEmpty()) "New Chat" else thread.title,
+            title = if (trimmedMessages.isEmpty()) defaultTitle else thread.title,
             messages = trimmedMessages,
             updatedAt = System.currentTimeMillis(),
             lastResponseId = trimmedMessages.lastOrNull { it.role == ChatRole.ASSISTANT }?.remoteResponseId,

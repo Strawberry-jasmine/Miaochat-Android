@@ -28,10 +28,10 @@ class EndpointResolverTest {
     @Test
     fun buildsIntelallocEndpointAsExpected() {
         val url = EndpointResolver.buildUrl(
-            baseUrl = "https://www.intelalloc.com",
+            baseUrl = "https://backend.intelalloc.com",
             path = ProviderPreset.INTELALLOC_CODEX.profile.path
         )
 
-        assertThat(url).isEqualTo("https://www.intelalloc.com/responses")
+        assertThat(url).isEqualTo("https://backend.intelalloc.com/responses")
     }
 }

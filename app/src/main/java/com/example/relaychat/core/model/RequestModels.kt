@@ -46,6 +46,38 @@ enum class VerbosityLevel {
 }
 
 @Serializable
+enum class AppLocale(
+    val languageTag: String,
+) {
+    @SerialName("system")
+    SYSTEM(""),
+
+    @SerialName("en")
+    ENGLISH("en"),
+
+    @SerialName("zhHans")
+    SIMPLIFIED_CHINESE("zh-CN"),
+    ;
+
+    companion object {
+        fun fromLanguageTag(languageTag: String?): AppLocale {
+            val normalized = languageTag
+                ?.substringBefore(',')
+                ?.trim()
+                ?.lowercase()
+                .orEmpty()
+
+            return when {
+                normalized.isBlank() -> SYSTEM
+                normalized.startsWith("zh") -> SIMPLIFIED_CHINESE
+                normalized.startsWith("en") -> ENGLISH
+                else -> SYSTEM
+            }
+        }
+    }
+}
+
+@Serializable
 enum class AppThemeMode {
     @SerialName("system")
     SYSTEM,
@@ -197,6 +229,7 @@ data class ProviderProfile(
 data class AppSettings(
     val provider: ProviderProfile = ProviderPreset.OPENAI_RESPONSES.profile,
     val defaultControls: RequestControls = ProviderPreset.OPENAI_RESPONSES.defaultControls,
+    val appLocale: AppLocale = AppLocale.SYSTEM,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
 ) {
     companion object {
