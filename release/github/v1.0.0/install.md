@@ -19,7 +19,7 @@ Get-FileHash .\miaochat-android-v1.0.0-release.apk -Algorithm SHA256
 看到的哈希应该是：
 
 ```text
-a9f361c50b528c687785bf98d783a64bbafe918d3f8ebbc355bd776067e51d87
+9db33b62912cf0a055256ab659949dc079ca3360da5a7604f0c0404a1af06366
 ```
 
 ## 常见情况

@@ -19,5 +19,5 @@
 ## 这次上传的主安装包
 
 - `miaochat-android-v1.0.0-release.apk`
-- 对应 SHA-256：`a9f361c50b528c687785bf98d783a64bbafe918d3f8ebbc355bd776067e51d87`
+- 对应 SHA-256：`9db33b62912cf0a055256ab659949dc079ca3360da5a7604f0c0404a1af06366`
 

@@ -2,7 +2,7 @@
 
 ## 推荐写法
 
-- tag：`relaychat-android-v1.0.0`
+- tag：`v1.0.0`
 - release 标题：`Miaochat for Android v1.0.0`
 - release 描述：直接粘贴 [release-notes.md](./release-notes.md) 的内容
 
@@ -33,7 +33,7 @@
 
 1. 把包含这次改动和 `release/github/v1.0.0/` 材料目录的提交推到远端分支。
 2. 打开仓库的 `Releases` 页面，点 `Draft a new release`。
-3. tag 填 `relaychat-android-v1.0.0`。
+3. tag 填 `v1.0.0`。
 4. 标题填 `Miaochat for Android v1.0.0`。
 5. 描述直接粘贴 [release-notes.md](./release-notes.md)。
 6. 上传上面列出的资产，至少要传 APK 和 APK 的 `.sha256` 文件。
@@ -44,7 +44,7 @@
 只有在这次 release 对应提交已经推到远端以后，再运行下面这条命令：
 
 ```powershell
-gh release create relaychat-android-v1.0.0 `
+gh release create v1.0.0 `
   release/github/v1.0.0/assets/miaochat-android-v1.0.0-release.apk `
   release/github/v1.0.0/assets/miaochat-android-v1.0.0-release.apk.sha256 `
   release/github/v1.0.0/assets/miaochat-android-v1.0.0-release.aab `
