@@ -1,0 +1,91 @@
+name: android
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: set up jdk 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: set up android sdk
+        uses: android-actions/setup-android@v3
+
+      - name: install sdk packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: test and build debug apk
+        run: ./gradlew testDebugUnitTest assembleDebug
+
+      - name: upload debug artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: miaochat-android-debug
+          path: |
+            app/build/outputs/apk/debug/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: set up jdk 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: set up android sdk
+        uses: android-actions/setup-android@v3
+
+      - name: install sdk packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: prepare optional signing inputs
+        if: ${{ secrets.RELAYCHAT_ANDROID_KEYSTORE_BASE64 != '' }}
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELAYCHAT_ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELAYCHAT_ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELAYCHAT_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELAYCHAT_ANDROID_KEY_PASSWORD }}
+        run: |
+          KEYSTORE_PATH="${RUNNER_TEMP}/relaychat-release.jks"
+          printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${KEYSTORE_PATH}"
+          {
+            echo "RELAYCHAT_SIGNING_STORE_FILE=${KEYSTORE_PATH}"
+            echo "RELAYCHAT_SIGNING_STORE_PASSWORD=${STORE_PASSWORD}"
+            echo "RELAYCHAT_SIGNING_KEY_ALIAS=${KEY_ALIAS}"
+            echo "RELAYCHAT_SIGNING_KEY_PASSWORD=${KEY_PASSWORD}"
+          } >> "${GITHUB_ENV}"
+
+      - name: build release apk and aab
+        run: ./gradlew testDebugUnitTest assembleRelease bundleRelease
+
+      - name: upload release artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: miaochat-android-release
+          path: |
+            app/build/outputs/apk/release/
+            app/build/outputs/bundle/release/
+            app/build/outputs/mapping/release/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: error

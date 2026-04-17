@@ -1,45 +1,50 @@
-# RelayChat Android
+# Miaochat for Android
 
-RelayChat Android is a native Kotlin + Jetpack Compose client that tracks the existing `projects/RelayChat-iOS/` feature set as closely as practical without turning the app into a wrapper.
+Miaochat is a native Android chat client built with Kotlin and Jetpack Compose. It supports OpenAI-compatible providers, local thread history, image attachments, provider presets, and configurable request controls such as reasoning, verbosity, web search, tool choice, and structured outputs.
 
-## Current scope
+The app name is `Miaochat`. The current package name is `com.example.relaychat`.
+
+## features
 
 - OpenAI-compatible provider configuration
-- Secure API key storage via Android Keystore-backed encrypted file storage
+- Secure API key storage backed by Android Keystore
 - Responses API and Chat Completions request modes
 - Reasoning, verbosity, web search, tool choice, response format, extra headers, and extra body JSON
-- Multi-session local thread history with rename, duplicate, branch, clear, and regenerate
+- Local multi-thread chat history with rename, duplicate, branch, clear, and regenerate actions
 - Image attachments from the Android photo picker
 - Markdown and fenced code block rendering with copy actions
-- `intelalloc Codex` preset plus Codex config import
-- Endpoint normalization to avoid duplicated path segments
+- `intelalloc Codex` preset and Codex config import
+- Background reply execution support
 - Debug APK, release APK, and release AAB build outputs
 
-## Project layout
-
-- `app/src/main/java/com/example/relaychat/core/`: models, request building, response parsing, endpoint logic
-- `app/src/main/java/com/example/relaychat/data/`: settings persistence, secure key storage, Room thread storage
-- `app/src/main/java/com/example/relaychat/ui/`: Compose app shell and screens
-- `app/src/test/`: parity-focused unit tests
-- `scripts/`: local Windows build helpers
-
-## Toolchain
+## tech stack
 
 - Kotlin 2.2.21
 - Android Gradle Plugin 8.13.2
 - Gradle 8.13
-- Compile / target SDK 36
+- Compile SDK 36
+- Target SDK 36
 - Min SDK 28
 - JDK 17
 
-## Local setup
+## layout
+
+- `app/src/main/java/com/example/relaychat/core/` for models, request building, parsing, and endpoint logic
+- `app/src/main/java/com/example/relaychat/data/` for settings persistence, secure key storage, and Room thread storage
+- `app/src/main/java/com/example/relaychat/ui/` for Compose screens and app shell
+- `app/src/test/` for unit tests
+- `app/src/androidTest/` for device and emulator smoke checks
+- `scripts/` for local Windows build helpers
+- `release/github/` for release notes, install docs, and maintainer release docs
+
+## local setup
 
 1. Install JDK 17.
 2. Install Android SDK platform 36 and build-tools 36.0.0.
 3. Point Android Studio or `local.properties` at your SDK.
-4. Optionally copy `keystore.properties.sample` to `keystore.properties` and fill in real release signing values.
+4. If you want signed release builds, copy `keystore.properties.sample` to `keystore.properties` and fill in real signing values, or provide the `RELAYCHAT_SIGNING_*` environment variables.
 
-## Build commands
+## build
 
 PowerShell helpers:
 
@@ -49,29 +54,32 @@ PowerShell helpers:
 
 Raw Gradle commands:
 
-- Debug APK: `.\gradlew.bat testDebugUnitTest assembleDebug`
-- Release APK: `.\gradlew.bat testDebugUnitTest assembleRelease`
-- Release AAB: `.\gradlew.bat testDebugUnitTest bundleRelease`
+- `.\gradlew.bat testDebugUnitTest assembleDebug`
+- `.\gradlew.bat testDebugUnitTest assembleRelease`
+- `.\gradlew.bat testDebugUnitTest bundleRelease`
 
-## Output paths
+## outputs
 
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`
-- Release APK: `app/build/outputs/apk/release/app-release-unsigned.apk`
+- Release APK with signing: `app/build/outputs/apk/release/app-release.apk`
+- Release APK without signing: `app/build/outputs/apk/release/app-release-unsigned.apk`
 - Release AAB: `app/build/outputs/bundle/release/app-release.aab`
 
-If you do not provide signing config, the release APK remains unsigned. The release AAB is also unsigned unless signing values are supplied through `keystore.properties` or the `RELAYCHAT_SIGNING_*` environment variables.
+## signing
 
-## Signing inputs
-
-`build.gradle.kts` accepts either `keystore.properties` or environment variables:
+`build.gradle.kts` accepts signing values from either `keystore.properties` or environment variables:
 
 - `RELAYCHAT_SIGNING_STORE_FILE`
 - `RELAYCHAT_SIGNING_STORE_PASSWORD`
 - `RELAYCHAT_SIGNING_KEY_ALIAS`
 - `RELAYCHAT_SIGNING_KEY_PASSWORD`
 
-`keystore.properties.sample` shows the file-based format.
+The sample file at `keystore.properties.sample` shows the file format.
 
-## CI
+## ci
 
-`.github/workflows/relaychat-android.yml` validates unit tests plus debug build on push / pull request and can produce release artifacts from `workflow_dispatch`.
+`.github/workflows/android.yml` runs unit tests and a debug build on push and pull request. The same workflow can also build release artifacts from `workflow_dispatch`.
+
+## releases
+
+Release notes, install instructions, and maintainer release docs live in `release/github/`. Release binaries are generated locally and are not tracked in Git.
