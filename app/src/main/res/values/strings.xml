@@ -51,6 +51,7 @@
 
     <string name="provider_api_style_responses">Responses API</string>
     <string name="provider_api_style_chat_completions">Chat Completions API</string>
+    <string name="provider_api_style_image_generations">Images API</string>
 
     <string name="reasoning_none">None</string>
     <string name="reasoning_minimal">Minimal</string>
@@ -77,19 +78,14 @@
     <string name="provider_preset_openai_responses_detail">Best for reasoning, verbosity, web search, response storage, and structured outputs.</string>
     <string name="provider_preset_openai_chat_title">OpenAI Chat</string>
     <string name="provider_preset_openai_chat_detail">Fallback for providers that only expose the older chat endpoint.</string>
+    <string name="provider_preset_openai_image_title">Image / gpt-image-2</string>
+    <string name="provider_preset_openai_image_detail">Dedicated non-streaming OpenAI Images API preset for PNG generation.</string>
     <string name="provider_preset_openrouter_title">OpenRouter Compatible</string>
     <string name="provider_preset_openrouter_detail">A practical preset for OpenAI-style third-party routing endpoints.</string>
     <string name="provider_preset_lm_studio_title">LM Studio Local</string>
     <string name="provider_preset_lm_studio_detail">Use a local OpenAI-compatible server on the same network.</string>
     <string name="provider_preset_custom_title">Custom</string>
     <string name="provider_preset_custom_detail">Start from your own endpoint and tune everything manually.</string>
-
-    <string name="tuning_preset_precise_title">Precise</string>
-    <string name="tuning_preset_precise_detail">Lower randomness and keep answers steady.</string>
-    <string name="tuning_preset_balanced_title">Balanced</string>
-    <string name="tuning_preset_balanced_detail">General-purpose defaults for everyday chats.</string>
-    <string name="tuning_preset_deep_title">Deep</string>
-    <string name="tuning_preset_deep_detail">Higher reasoning with live web access when available.</string>
 
     <string name="pending_title_thinking">Thinking</string>
     <string name="pending_title_searching">Searching the Web</string>
@@ -123,18 +119,20 @@
     <string name="chat_note_regenerating">Regenerating the last reply</string>
     <string name="chat_controls_reasoning">Reasoning</string>
     <string name="chat_controls_verbosity">Verbosity</string>
-    <string name="chat_controls_tune">Tune</string>
-    <string name="chat_controls_less">Less</string>
-    <string name="chat_controls_custom">Custom</string>
     <string name="chat_controls_web_on">Web On</string>
     <string name="chat_controls_web_off">Web Off</string>
     <string name="chat_controls_web_unavailable">No Web</string>
     <string name="chat_controls_thread_fresh">Fresh thread</string>
+    <string name="chat_mode_switch_chat">Chat</string>
+    <string name="chat_mode_switch_image">Image</string>
+    <string name="chat_mode_switch_chat_desc">Switch to chat mode</string>
+    <string name="chat_mode_switch_image_desc">Switch to image generation mode</string>
     <string name="chat_busy_default_detail">A reply is still running in the background.</string>
     <string name="chat_composer_attachment_title">Image Attached</string>
     <string name="chat_composer_attach_image_desc">Attach image</string>
     <string name="chat_composer_placeholder_busy">Thinking through the reply...</string>
     <string name="chat_composer_placeholder_idle">Message Miaochat</string>
+    <string name="chat_composer_placeholder_image">Describe the PNG image to generate</string>
     <string name="chat_composer_send_desc">Send</string>
     <string name="chat_composer_thinking_button">Thinking</string>
 
@@ -160,6 +158,11 @@
     <string name="history_current_thread_actions_title">Current thread</string>
 
     <string name="settings_configuration_eyebrow">Configuration</string>
+    <string name="settings_category_model">Model</string>
+    <string name="settings_category_connection">Connection</string>
+    <string name="settings_category_image">Image</string>
+    <string name="settings_category_appearance">Appearance</string>
+    <string name="settings_category_advanced">Advanced</string>
     <string name="settings_appearance_title">Appearance</string>
     <string name="settings_language_title">Language</string>
     <string name="settings_language_description">Switch the app language instantly and keep it for the next launch.</string>
@@ -169,16 +172,26 @@
     <string name="settings_import_codex_config">Import Codex Config</string>
     <string name="settings_use_intelalloc_preset">Use intelalloc Preset</string>
     <string name="settings_use_openai_responses_preset">Use OpenAI Responses Preset</string>
+    <string name="settings_use_openai_image_preset">Use Image / gpt-image-2 Preset</string>
     <string name="settings_preset_title">Preset</string>
     <string name="settings_provider_preset_label">Provider Preset</string>
-    <string name="settings_quality_presets_title">Quality Presets</string>
     <string name="settings_endpoint_title">Endpoint</string>
+    <string name="settings_connection_title">Connection</string>
+    <string name="settings_model_capabilities_title">Model &amp; Capabilities</string>
+    <string name="settings_model_api_label">Request API</string>
+    <string name="settings_verbosity_unavailable">Verbosity is not available for this model and API style.</string>
+    <string name="settings_web_search_unavailable">Web search is not available for this model and API style.</string>
+    <string name="settings_image_generation_mode_active">Image generation model: PNG output uses the dedicated Images API.</string>
     <string name="settings_api_style_label">API Style</string>
     <string name="settings_display_name_label">Display Name</string>
     <string name="settings_base_url_label">Base URL</string>
     <string name="settings_path_label">Path</string>
     <string name="settings_api_key_label">API Key</string>
     <string name="settings_model_label">Model</string>
+    <string name="settings_image_generation_title">Image Generation</string>
+    <string name="settings_image_size_label">Size</string>
+    <string name="settings_image_quality_label">Quality</string>
+    <string name="settings_image_background_label">Background</string>
     <string name="settings_instructions_title">Instructions</string>
     <string name="settings_instructions_label">Instructions / System Prompt</string>
     <string name="settings_default_controls_title">Default Chat Controls</string>

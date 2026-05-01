@@ -1,6 +1,7 @@
 package com.example.relaychat.core.model
 
 import java.util.UUID
+import kotlinx.serialization.Serializable
 
 enum class ChatRole(val wireValue: String) {
     SYSTEM("system"),
@@ -13,6 +14,25 @@ data class ChatAttachment(
     val id: String = UUID.randomUUID().toString(),
     val mimeType: String,
     val data: ByteArray,
+    val filePath: String? = null,
+)
+
+@Serializable
+data class ImageGenerationOptions(
+    val size: String = "1024x1024",
+    val quality: String = "auto",
+    val background: String = "auto",
+    val outputFormat: String = "png",
+)
+
+@Serializable
+data class ImageGenerationMetadata(
+    val prompt: String,
+    val model: String,
+    val size: String,
+    val quality: String,
+    val imagePath: String,
+    val createdAt: Long,
 )
 
 data class ChatMessage(
@@ -24,6 +44,7 @@ data class ChatMessage(
     val remoteResponseId: String? = null,
     val requestId: String? = null,
     val model: String? = null,
+    val imageGeneration: ImageGenerationMetadata? = null,
 )
 
 data class ChatThread(
@@ -44,6 +65,8 @@ data class ChatSendResult(
     val responseId: String?,
     val requestId: String?,
     val model: String?,
+    val attachments: List<ChatAttachment> = emptyList(),
+    val imageGeneration: ImageGenerationMetadata? = null,
 )
 
 enum class ChatStreamLifecycleStage {

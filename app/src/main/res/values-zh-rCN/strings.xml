@@ -51,6 +51,7 @@
 
     <string name="provider_api_style_responses">Responses API</string>
     <string name="provider_api_style_chat_completions">Chat Completions API</string>
+    <string name="provider_api_style_image_generations">Images API</string>
 
     <string name="reasoning_none">无</string>
     <string name="reasoning_minimal">极低</string>
@@ -76,6 +77,8 @@
     <string name="provider_preset_openai_responses_title">OpenAI Responses</string>
     <string name="provider_preset_openai_responses_detail">更适合推理、详细度、联网搜索、响应存储和结构化输出。</string>
     <string name="provider_preset_openai_chat_title">OpenAI Chat</string>
+    <string name="provider_preset_openai_image_title">Image / gpt-image-2</string>
+    <string name="provider_preset_openai_image_detail">专用的非流式 OpenAI Images API 预设，用于 PNG 生图。</string>
     <string name="provider_preset_openai_chat_detail">适用于仅提供旧版 Chat 端点的兼容方案。</string>
     <string name="provider_preset_openrouter_title">OpenRouter Compatible</string>
     <string name="provider_preset_openrouter_detail">适合 OpenAI 风格第三方路由端点的实用预设。</string>
@@ -83,13 +86,6 @@
     <string name="provider_preset_lm_studio_detail">连接同一网络中的本地 OpenAI 兼容服务。</string>
     <string name="provider_preset_custom_title">Custom</string>
     <string name="provider_preset_custom_detail">从你的自定义端点开始，再手动调整全部设置。</string>
-
-    <string name="tuning_preset_precise_title">精准</string>
-    <string name="tuning_preset_precise_detail">降低随机性，让回答更稳定。</string>
-    <string name="tuning_preset_balanced_title">平衡</string>
-    <string name="tuning_preset_balanced_detail">适合日常聊天的通用默认值。</string>
-    <string name="tuning_preset_deep_title">深入</string>
-    <string name="tuning_preset_deep_detail">在可用时提高推理强度并启用联网能力。</string>
 
     <string name="pending_title_thinking">思考中</string>
     <string name="pending_title_searching">联网搜索中</string>
@@ -123,18 +119,20 @@
     <string name="chat_note_regenerating">正在重新生成上一条回复</string>
     <string name="chat_controls_reasoning">推理</string>
     <string name="chat_controls_verbosity">详细度</string>
-    <string name="chat_controls_tune">调整</string>
-    <string name="chat_controls_less">收起</string>
-    <string name="chat_controls_custom">自定义</string>
     <string name="chat_controls_web_on">联网开启</string>
     <string name="chat_controls_web_off">联网关闭</string>
     <string name="chat_controls_web_unavailable">不支持联网</string>
     <string name="chat_controls_thread_fresh">新会话</string>
+    <string name="chat_mode_switch_chat">聊天</string>
+    <string name="chat_mode_switch_image">生图</string>
+    <string name="chat_mode_switch_chat_desc">切换到聊天模式</string>
+    <string name="chat_mode_switch_image_desc">切换到生图模式</string>
     <string name="chat_busy_default_detail">仍有一条回复在后台继续生成。</string>
     <string name="chat_composer_attachment_title">已附加图片</string>
     <string name="chat_composer_attach_image_desc">添加图片</string>
     <string name="chat_composer_placeholder_busy">正在生成回复...</string>
     <string name="chat_composer_placeholder_idle">给 Miaochat 发消息</string>
+    <string name="chat_composer_placeholder_image">描述要生成的 PNG 图片</string>
     <string name="chat_composer_send_desc">发送</string>
     <string name="chat_composer_thinking_button">思考中</string>
 
@@ -160,6 +158,11 @@
     <string name="history_current_thread_actions_title">当前会话</string>
 
     <string name="settings_configuration_eyebrow">配置概览</string>
+    <string name="settings_category_model">模型</string>
+    <string name="settings_category_connection">连接</string>
+    <string name="settings_category_image">生图</string>
+    <string name="settings_category_appearance">外观</string>
+    <string name="settings_category_advanced">高级</string>
     <string name="settings_appearance_title">外观</string>
     <string name="settings_language_title">语言</string>
     <string name="settings_language_description">即时切换应用语言，并在下次启动时继续保留。</string>
@@ -169,16 +172,26 @@
     <string name="settings_import_codex_config">导入 Codex 配置</string>
     <string name="settings_use_intelalloc_preset">使用 intelalloc 预设</string>
     <string name="settings_use_openai_responses_preset">使用 OpenAI Responses 预设</string>
+    <string name="settings_use_openai_image_preset">使用 Image / gpt-image-2 预设</string>
     <string name="settings_preset_title">预设</string>
     <string name="settings_provider_preset_label">供应商预设</string>
-    <string name="settings_quality_presets_title">回答预设</string>
     <string name="settings_endpoint_title">端点</string>
+    <string name="settings_connection_title">连接</string>
+    <string name="settings_model_capabilities_title">模型与能力</string>
+    <string name="settings_model_api_label">请求 API</string>
+    <string name="settings_verbosity_unavailable">当前模型和 API 风格不支持详细度。</string>
+    <string name="settings_web_search_unavailable">当前模型和 API 风格不支持联网搜索。</string>
+    <string name="settings_image_generation_mode_active">生图模型：PNG 输出使用专用 Images API。</string>
     <string name="settings_api_style_label">API 风格</string>
     <string name="settings_display_name_label">显示名称</string>
     <string name="settings_base_url_label">基础 URL</string>
     <string name="settings_path_label">路径</string>
     <string name="settings_api_key_label">API Key</string>
     <string name="settings_model_label">模型</string>
+    <string name="settings_image_generation_title">图片生成</string>
+    <string name="settings_image_size_label">尺寸</string>
+    <string name="settings_image_quality_label">质量</string>
+    <string name="settings_image_background_label">背景</string>
     <string name="settings_instructions_title">指令</string>
     <string name="settings_instructions_label">指令 / System Prompt</string>
     <string name="settings_default_controls_title">默认聊天控制</string>

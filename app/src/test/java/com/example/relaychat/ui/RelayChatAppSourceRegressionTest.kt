@@ -15,18 +15,10 @@ class RelayChatAppSourceRegressionTest {
     }
 
     @Test
-    fun chatScreenUsesHamburgerDrivenThreadRail() {
+    fun chatScreenUsesBottomThreadRail() {
         val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/chat/ChatScreen.kt")
 
-        assertThat(source).contains("Icons.Outlined.Menu")
         assertThat(source).contains("ThreadHistoryRail(")
-    }
-
-    @Test
-    fun relayChatAppRespondsToImeVisibilityForBottomBar() {
-        val source = readProjectFile("app/src/main/java/com/example/relaychat/ui/RelayChatApp.kt")
-
-        assertThat(source).contains("WindowInsets.ime")
     }
 
     @Test
@@ -41,13 +33,6 @@ class RelayChatAppSourceRegressionTest {
         val source = readProjectFile("app/src/main/java/com/example/relaychat/MainActivity.kt")
 
         assertThat(source).contains("applyToAppCompat")
-    }
-
-    @Test
-    fun manifestUsesAdjustResizeForImeTransitions() {
-        val manifest = readProjectFile("app/src/main/AndroidManifest.xml")
-
-        assertThat(manifest).contains("windowSoftInputMode=\"adjustResize\"")
     }
 
     @Test

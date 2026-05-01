@@ -83,14 +83,14 @@ private val RelayTypography = Typography(
         fontWeight = FontWeight.SemiBold,
         fontSize = 30.sp,
         lineHeight = 35.sp,
-        letterSpacing = (-0.6).sp,
+        letterSpacing = 0.sp,
     ),
     headlineSmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 22.sp,
         lineHeight = 28.sp,
-        letterSpacing = (-0.15).sp,
+        letterSpacing = 0.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,

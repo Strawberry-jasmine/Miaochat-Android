@@ -4,6 +4,8 @@ import com.example.relaychat.core.model.ChatAttachment
 import com.example.relaychat.core.model.ChatMessage
 import com.example.relaychat.core.model.ChatRole
 import com.example.relaychat.core.model.ChatThread
+import com.example.relaychat.core.model.ImageGenerationMetadata
+import com.example.relaychat.core.network.RelayChatJson
 
 internal fun ThreadWithMessages.toModel(): ChatThread = ChatThread(
     id = thread.id,
@@ -22,12 +24,19 @@ internal fun ThreadWithMessages.toModel(): ChatThread = ChatThread(
                             id = attachment.id,
                             mimeType = attachment.mimeType,
                             data = attachment.data,
+                            filePath = attachment.filePath,
                         )
                     },
                 createdAt = messageWithAttachments.message.createdAt,
                 remoteResponseId = messageWithAttachments.message.remoteResponseId,
                 requestId = messageWithAttachments.message.requestId,
                 model = messageWithAttachments.message.model,
+                imageGeneration = messageWithAttachments.message.imageGenerationJson
+                    ?.let { encoded ->
+                        runCatching {
+                            RelayChatJson.instance.decodeFromString(ImageGenerationMetadata.serializer(), encoded)
+                        }.getOrNull()
+                    },
             )
         },
     createdAt = thread.createdAt,
@@ -54,6 +63,9 @@ internal fun ChatThread.toMessageEntities(): List<MessageEntity> = messages.mapI
         remoteResponseId = message.remoteResponseId,
         requestId = message.requestId,
         model = message.model,
+        imageGenerationJson = message.imageGeneration?.let { metadata ->
+            RelayChatJson.instance.encodeToString(ImageGenerationMetadata.serializer(), metadata)
+        },
     )
 }
 
@@ -65,6 +77,7 @@ internal fun ChatThread.toAttachmentEntities(): List<AttachmentEntity> = message
             position = index,
             mimeType = attachment.mimeType,
             data = attachment.data,
+            filePath = attachment.filePath,
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.example.relaychat.app
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -56,10 +58,12 @@ class ChatForegroundService : Service() {
         monitorJob = serviceScope.launch {
             coordinator.activeReply.collectLatest { reply ->
                 if (reply?.threadId == threadId) {
-                    notificationManager().notify(
-                        NOTIFICATION_ID,
-                        buildNotification(reply = reply, fallbackReason = reason),
-                    )
+                    if (canPostNotifications()) {
+                        notificationManager().notify(
+                            NOTIFICATION_ID,
+                            buildNotification(reply = reply, fallbackReason = reason),
+                        )
+                    }
                     return@collectLatest
                 }
 
@@ -138,6 +142,10 @@ class ChatForegroundService : Service() {
 
     private fun notificationManager(): NotificationManager =
         getSystemService(NotificationManager::class.java)
+
+    private fun canPostNotifications(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     private fun openAppPendingIntent(): PendingIntent {
         val intent = Intent(this, MainActivity::class.java).apply {

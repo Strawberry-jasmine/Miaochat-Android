@@ -10,6 +10,9 @@ enum class ProviderApiStyle {
 
     @SerialName("chatCompletions")
     CHAT_COMPLETIONS,
+
+    @SerialName("imageGenerations")
+    IMAGE_GENERATIONS,
 }
 
 @Serializable
@@ -225,10 +228,18 @@ data class ProviderProfile(
     val webSearchMapping: ToggleFieldMapping = ToggleFieldMapping(),
 )
 
+data class SelectedModelCapabilities(
+    val reasoningEfforts: List<ReasoningEffort>,
+    val verbosityLevels: List<VerbosityLevel>,
+    val supportsWebSearch: Boolean,
+    val supportsImageGeneration: Boolean,
+)
+
 @Serializable
 data class AppSettings(
     val provider: ProviderProfile = ProviderPreset.OPENAI_RESPONSES.profile,
     val defaultControls: RequestControls = ProviderPreset.OPENAI_RESPONSES.defaultControls,
+    val imageGeneration: ImageGenerationOptions = ImageGenerationOptions(),
     val appLocale: AppLocale = AppLocale.SYSTEM,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
 ) {
@@ -254,6 +265,26 @@ fun AppSettings.normalizedForProviderCompatibility(): AppSettings {
 }
 
 internal fun ProviderProfile.normalizedForProviderCompatibility(): ProviderProfile {
+    if (apiStyle == ProviderApiStyle.IMAGE_GENERATIONS) {
+        val presetProfile = if (presetId == ProviderPreset.OPENAI_IMAGE.id) {
+            copy(
+                displayName = ProviderPreset.OPENAI_IMAGE.profile.displayName,
+                baseUrl = ProviderPreset.OPENAI_IMAGE.profile.baseUrl,
+                path = ProviderPreset.OPENAI_IMAGE.profile.path,
+                model = model.ifBlank { ProviderPreset.OPENAI_IMAGE.profile.model },
+            )
+        } else {
+            this
+        }
+        return presetProfile.copy(
+            supportsImageInput = false,
+            supportsWebSearch = false,
+            supportsStreaming = false,
+            supportsVerbosity = false,
+            supportsStructuredOutputs = false,
+        )
+    }
+
     if (!isIntelallocProvider()) {
         return this
     }
@@ -277,81 +308,108 @@ internal fun ProviderProfile.isIntelallocProvider(): Boolean {
         "intelalloc" in base
 }
 
+fun ProviderProfile.withSelectedModel(modelId: String): ProviderProfile {
+    val trimmedModel = modelId.trim()
+    if (trimmedModel.isEmpty()) {
+        return this
+    }
+
+    val candidate = copy(model = trimmedModel)
+    if (candidate.apiStyle == ProviderApiStyle.IMAGE_GENERATIONS || trimmedModel.isImageGenerationModelId()) {
+        val imageCandidate = if (trimmedModel.isImageGenerationModelId() && candidate.isOpenAiLikeProvider()) {
+            candidate.copy(
+                apiStyle = ProviderApiStyle.IMAGE_GENERATIONS,
+                path = "/images/generations",
+            )
+        } else {
+            candidate
+        }
+        return imageCandidate.copy(
+            supportsImageInput = false,
+            supportsWebSearch = false,
+            supportsStreaming = false,
+            supportsVerbosity = false,
+            supportsStructuredOutputs = false,
+        )
+    }
+
+    if (!candidate.isOpenAiLikeProvider()) {
+        return candidate
+    }
+
+    return when (candidate.apiStyle) {
+        ProviderApiStyle.RESPONSES -> candidate.copy(
+            supportsImageInput = true,
+            supportsWebSearch = true,
+            supportsStreaming = true,
+            supportsVerbosity = true,
+            supportsStructuredOutputs = true,
+        )
+
+        ProviderApiStyle.CHAT_COMPLETIONS -> candidate.copy(
+            supportsImageInput = true,
+            supportsWebSearch = false,
+            supportsStreaming = true,
+            supportsVerbosity = false,
+            supportsStructuredOutputs = true,
+        )
+
+        ProviderApiStyle.IMAGE_GENERATIONS -> candidate
+    }
+}
+
+fun ProviderProfile.capabilitiesForSelectedModel(): SelectedModelCapabilities {
+    if (apiStyle == ProviderApiStyle.IMAGE_GENERATIONS || model.isImageGenerationModelId()) {
+        return SelectedModelCapabilities(
+            reasoningEfforts = listOf(ReasoningEffort.NONE),
+            verbosityLevels = emptyList(),
+            supportsWebSearch = false,
+            supportsImageGeneration = true,
+        )
+    }
+
+    val reasoningEfforts = when (apiStyle) {
+        ProviderApiStyle.RESPONSES -> ReasoningEffort.entries
+        ProviderApiStyle.CHAT_COMPLETIONS -> if (reasoningMapping.path.isNotBlank()) {
+            ReasoningEffort.entries
+        } else {
+            listOf(ReasoningEffort.NONE)
+        }
+
+        ProviderApiStyle.IMAGE_GENERATIONS -> listOf(ReasoningEffort.NONE)
+    }
+
+    val verbosityLevels = if (supportsVerbosity || verbosityMapping.path.isNotBlank()) {
+        VerbosityLevel.entries
+    } else {
+        emptyList()
+    }
+
+    return SelectedModelCapabilities(
+        reasoningEfforts = reasoningEfforts,
+        verbosityLevels = verbosityLevels,
+        supportsWebSearch = supportsWebSearch,
+        supportsImageGeneration = false,
+    )
+}
+
+private fun ProviderProfile.isOpenAiLikeProvider(): Boolean {
+    val preset = presetId.lowercase()
+    val display = displayName.lowercase()
+    val base = baseUrl.lowercase()
+    return preset.startsWith("openai") ||
+        "openai" in display ||
+        "api.openai.com" in base
+}
+
+private fun String.isImageGenerationModelId(): Boolean {
+    val normalized = lowercase()
+    return normalized.startsWith("gpt-image") ||
+        normalized.startsWith("dall-e") ||
+        "image" in normalized && "embedding" !in normalized
+}
+
 data class RuntimeChatConfiguration(
     val settings: AppSettings,
     val apiKey: String,
 )
-
-enum class RequestTuningPreset(
-    val title: String,
-    val detail: String,
-) {
-    PRECISE(
-        title = "Precise",
-        detail = "Lower randomness, keep answers stable.",
-    ),
-    BALANCED(
-        title = "Balanced",
-        detail = "General-purpose defaults.",
-    ),
-    DEEP(
-        title = "Deep",
-        detail = "Higher reasoning and web access when available.",
-    ),
-    ;
-
-    fun applyTo(controls: RequestControls, provider: ProviderProfile): RequestControls = when (this) {
-        PRECISE -> controls.copy(
-            reasoningEffort = ReasoningEffort.HIGH,
-            verbosity = if (provider.supportsVerbosity) VerbosityLevel.MEDIUM else controls.verbosity,
-            webSearchEnabled = false,
-            toolChoice = ToolChoiceMode.AUTO,
-            temperatureEnabled = false,
-            topPEnabled = false,
-            seedEnabled = true,
-        )
-
-        BALANCED -> controls.copy(
-            reasoningEffort = ReasoningEffort.MEDIUM,
-            verbosity = if (provider.supportsVerbosity) VerbosityLevel.MEDIUM else controls.verbosity,
-            webSearchEnabled = false,
-            toolChoice = ToolChoiceMode.AUTO,
-            temperatureEnabled = false,
-            topPEnabled = false,
-            seedEnabled = false,
-        )
-
-        DEEP -> controls.copy(
-            reasoningEffort = ReasoningEffort.XHIGH,
-            verbosity = if (provider.supportsVerbosity) VerbosityLevel.HIGH else controls.verbosity,
-            webSearchEnabled = provider.supportsWebSearch,
-            toolChoice = ToolChoiceMode.AUTO,
-            temperatureEnabled = false,
-            topPEnabled = false,
-            seedEnabled = false,
-        )
-    }
-
-    fun matches(controls: RequestControls, provider: ProviderProfile): Boolean = when (this) {
-        PRECISE -> controls.reasoningEffort == ReasoningEffort.HIGH &&
-            !controls.webSearchEnabled &&
-            !controls.temperatureEnabled &&
-            !controls.topPEnabled &&
-            controls.seedEnabled &&
-            (!provider.supportsVerbosity || controls.verbosity == VerbosityLevel.MEDIUM)
-
-        BALANCED -> controls.reasoningEffort == ReasoningEffort.MEDIUM &&
-            !controls.webSearchEnabled &&
-            !controls.temperatureEnabled &&
-            !controls.topPEnabled &&
-            !controls.seedEnabled &&
-            (!provider.supportsVerbosity || controls.verbosity == VerbosityLevel.MEDIUM)
-
-        DEEP -> controls.reasoningEffort == ReasoningEffort.XHIGH &&
-            controls.webSearchEnabled == provider.supportsWebSearch &&
-            !controls.temperatureEnabled &&
-            !controls.topPEnabled &&
-            !controls.seedEnabled &&
-            (!provider.supportsVerbosity || controls.verbosity == VerbosityLevel.HIGH)
-    }
-}

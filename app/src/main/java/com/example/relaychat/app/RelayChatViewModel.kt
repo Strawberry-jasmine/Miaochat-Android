@@ -15,15 +15,17 @@ import com.example.relaychat.core.model.ChatThread
 import com.example.relaychat.core.model.ProviderApiStyle
 import com.example.relaychat.core.model.ProviderProfile
 import com.example.relaychat.core.model.ProviderPreset
+import com.example.relaychat.core.model.ReasoningEffort
 import com.example.relaychat.core.model.RequestControls
-import com.example.relaychat.core.model.RequestTuningPreset
 import com.example.relaychat.core.model.ResponseFormatMode
+import com.example.relaychat.core.model.VerbosityLevel
+import com.example.relaychat.core.model.capabilitiesForSelectedModel
+import com.example.relaychat.core.model.withSelectedModel
 import com.example.relaychat.core.network.ChatServiceException
 import com.example.relaychat.core.network.EndpointResolver
 import com.example.relaychat.data.settings.SettingsRepository
 import com.example.relaychat.data.threads.ThreadRepository
 import com.example.relaychat.localization.AppLocaleManager
-import com.example.relaychat.ui.strings.detailFor
 import com.example.relaychat.ui.strings.stringFor
 import com.example.relaychat.ui.theme.applyToAppCompat
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -266,12 +268,6 @@ class RelayChatViewModel(
         }
     }
 
-    fun applyTuningPreset(preset: RequestTuningPreset) {
-        _uiState.update { state ->
-            state.copy(controls = preset.applyTo(state.controls, state.settings.provider))
-        }
-    }
-
     fun writeApiKey(value: String) {
         viewModelScope.launch {
             settingsRepository.writeApiKey(value)
@@ -283,6 +279,16 @@ class RelayChatViewModel(
         viewModelScope.launch {
             val updated = transform(_uiState.value.settings)
             settingsRepository.writeSettings(updated)
+        }
+    }
+
+    fun selectProviderModel(modelId: String) {
+        updateSettings { settings ->
+            val provider = settings.provider.withSelectedModel(modelId)
+            settings.copy(
+                provider = provider,
+                defaultControls = settings.defaultControls.normalizedForProviderCapabilities(provider),
+            )
         }
     }
 
@@ -316,22 +322,6 @@ class RelayChatViewModel(
                     importSummary = null,
                 )
             }
-        }
-    }
-
-    fun applyDefaultTuningPreset(preset: RequestTuningPreset) {
-        val current = _uiState.value
-        val updatedControls = preset.applyTo(current.settings.defaultControls, current.settings.provider)
-        updateSettings { settings ->
-            settings.copy(defaultControls = updatedControls)
-        }
-        _uiState.update {
-            it.copy(
-                importStatus = getApplication<Application>().getString(
-                    R.string.status_quality_preset_applied,
-                    getApplication<Application>().stringFor(preset),
-                ),
-            )
         }
     }
 
@@ -557,17 +547,33 @@ private fun mergeControlsForSettingsChange(
         currentControls
     }
 
-    return candidate.copy(
-        verbosity = if (newSettings.provider.supportsVerbosity) {
-            candidate.verbosity
+    return candidate.normalizedForProviderCapabilities(newSettings.provider)
+}
+
+private fun RequestControls.normalizedForProviderCapabilities(provider: ProviderProfile): RequestControls {
+    val capabilities = provider.capabilitiesForSelectedModel()
+    val normalizedReasoning = if (reasoningEffort in capabilities.reasoningEfforts) {
+        reasoningEffort
+    } else {
+        capabilities.reasoningEfforts.lastOrNull() ?: ReasoningEffort.NONE
+    }
+    val normalizedVerbosity = if (capabilities.verbosityLevels.isEmpty()) {
+        VerbosityLevel.MEDIUM
+    } else if (verbosity in capabilities.verbosityLevels) {
+        verbosity
+    } else {
+        VerbosityLevel.MEDIUM
+    }
+
+    return copy(
+        reasoningEffort = normalizedReasoning,
+        verbosity = normalizedVerbosity,
+        webSearchEnabled = webSearchEnabled && capabilities.supportsWebSearch,
+        responseStorageEnabled = responseStorageEnabled && !capabilities.supportsImageGeneration,
+        responseFormat = if (provider.supportsStructuredOutputs) {
+            responseFormat
         } else {
-            newSettings.defaultControls.verbosity
-        },
-        webSearchEnabled = candidate.webSearchEnabled && newSettings.provider.supportsWebSearch,
-        responseFormat = if (newSettings.provider.supportsStructuredOutputs) {
-            candidate.responseFormat
-        } else {
-            candidate.responseFormat.copy(mode = ResponseFormatMode.TEXT)
+            responseFormat.copy(mode = ResponseFormatMode.TEXT)
         },
     )
 }

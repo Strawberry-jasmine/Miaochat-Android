@@ -8,12 +8,16 @@ import com.example.relaychat.core.model.ChatSendResult
 import com.example.relaychat.core.model.ChatStreamEvent
 import com.example.relaychat.core.model.ChatStreamLifecycleStage
 import com.example.relaychat.core.model.ChatThread
+import com.example.relaychat.core.model.ProviderApiStyle
 import com.example.relaychat.core.model.RequestControls
 import com.example.relaychat.core.model.RuntimeChatConfiguration
 import com.example.relaychat.core.network.ChatService
+import com.example.relaychat.core.network.FileGeneratedImageStore
+import com.example.relaychat.core.network.ImageGenerationService
 import com.example.relaychat.R
 import com.example.relaychat.data.settings.SettingsRepository
 import com.example.relaychat.data.threads.ThreadRepository
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,6 +47,9 @@ class ChatExecutionCoordinator internal constructor(
     private val saveAssistantResult: suspend (String, ChatSendResult) -> Unit,
     private val streamRequest: (ChatThread, RuntimeChatConfiguration, RequestControls) -> Flow<ChatStreamEvent>,
     private val sendRequest: suspend (ChatThread, RuntimeChatConfiguration, RequestControls) -> ChatSendResult,
+    private val generateImageRequest: suspend (ChatThread, RuntimeChatConfiguration, RequestControls) -> ChatSendResult = { _, _, _ ->
+        error("Image generation is not configured.")
+    },
     private val requestInProgressMessage: String = "Another reply is already in progress.",
     private val requestFailedFallbackMessage: String = "Request failed.",
     private val missingActiveThreadMessage: String = "No active thread was available.",
@@ -99,21 +106,27 @@ class ChatExecutionCoordinator internal constructor(
             val runtime = loadRuntimeSnapshot()
             val thread = loadThread(threadId) ?: error(missingActiveThreadMessage)
 
-            executeWithStreamingFallback(
-                provider = runtime.settings.provider,
-                streamRequest = {
-                    sendStreaming(
-                        thread = thread,
-                        runtime = runtime,
-                        controls = controls,
-                        threadId = threadId,
-                    )
-                },
-                sendRequest = {
-                    val result = sendRequest(thread, runtime, controls)
-                    saveAssistantResult(threadId, result)
-                },
-            )
+            if (runtime.settings.provider.apiStyle == ProviderApiStyle.IMAGE_GENERATIONS) {
+                updateInFlightImageGeneration(threadId = threadId)
+                val result = generateImageRequest(thread, runtime, controls)
+                saveAssistantResult(threadId, result)
+            } else {
+                executeWithStreamingFallback(
+                    provider = runtime.settings.provider,
+                    streamRequest = {
+                        sendStreaming(
+                            thread = thread,
+                            runtime = runtime,
+                            controls = controls,
+                            threadId = threadId,
+                        )
+                    },
+                    sendRequest = {
+                        val result = sendRequest(thread, runtime, controls)
+                        saveAssistantResult(threadId, result)
+                    },
+                )
+            }
 
             finish(threadId = threadId, error = null)
         } catch (error: Exception) {
@@ -180,6 +193,14 @@ class ChatExecutionCoordinator internal constructor(
         )
     }
 
+    private fun updateInFlightImageGeneration(threadId: String) {
+        val current = _activeReply.value?.takeIf { it.threadId == threadId } ?: return
+        _activeReply.value = current.transitionTo(
+            stage = InFlightAssistantStage.THINKING,
+            detail = "generating image",
+        )
+    }
+
     private fun appendInFlightReplyText(
         threadId: String,
         delta: String,
@@ -232,6 +253,9 @@ class ChatExecutionCoordinator internal constructor(
             val settingsRepository = SettingsRepository(context)
             val threadRepository = ThreadRepository(context)
             val chatService = ChatService(context)
+            val imageService = ImageGenerationService(
+                imageStore = FileGeneratedImageStore(File(context.filesDir, "generated-images")),
+            )
 
             return ChatExecutionCoordinator(
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
@@ -249,9 +273,11 @@ class ChatExecutionCoordinator internal constructor(
                         ChatMessage(
                             role = ChatRole.ASSISTANT,
                             text = result.assistantText,
+                            attachments = result.attachments,
                             remoteResponseId = result.responseId,
                             requestId = result.requestId,
                             model = result.model,
+                            imageGeneration = result.imageGeneration,
                         ),
                         threadId,
                     )
@@ -262,6 +288,10 @@ class ChatExecutionCoordinator internal constructor(
                 },
                 sendRequest = { thread, runtime, controls ->
                     chatService.send(thread, runtime, controls)
+                },
+                generateImageRequest = { thread, runtime, _ ->
+                    val prompt = thread.messages.lastOrNull { it.role == ChatRole.USER }?.text.orEmpty()
+                    imageService.generate(prompt = prompt, runtime = runtime)
                 },
                 requestInProgressMessage = context.getString(R.string.error_request_in_progress),
                 requestFailedFallbackMessage = context.getString(R.string.error_request_failed_generic),

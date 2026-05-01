@@ -28,6 +28,7 @@ object ChatPayloadBuilder {
     ): JsonObject = when (provider.apiStyle) {
         ProviderApiStyle.RESPONSES -> buildResponses(thread, provider, controls, stream)
         ProviderApiStyle.CHAT_COMPLETIONS -> buildChatCompletions(thread, provider, controls, stream)
+        ProviderApiStyle.IMAGE_GENERATIONS -> error("Images API requests are built by ImageGenerationService.")
     }
 
     private fun buildResponses(

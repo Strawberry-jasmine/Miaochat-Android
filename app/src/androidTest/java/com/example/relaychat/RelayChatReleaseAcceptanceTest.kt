@@ -196,7 +196,7 @@ class RelayChatReleaseAcceptanceTest {
         applyProviderPreset(stringRes(R.string.settings_use_intelalloc_preset))
         assertThat(device.wait(Until.hasObject(By.text("intelalloc Codex")), 10_000)).isTrue()
         openChatTab()
-        assertThat(device.wait(Until.hasObject(By.text("intelalloc | gpt-5.4")), 10_000)).isTrue()
+        assertThat(device.wait(Until.hasObject(By.text("intelalloc | gpt-5.5")), 10_000)).isTrue()
     }
 
     @Test

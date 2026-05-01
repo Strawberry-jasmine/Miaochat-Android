@@ -7,6 +7,8 @@ import com.example.relaychat.core.model.ChatSendResult
 import com.example.relaychat.core.model.ChatStreamEvent
 import com.example.relaychat.core.model.ChatStreamLifecycleStage
 import com.example.relaychat.core.model.ChatThread
+import com.example.relaychat.core.model.ChatAttachment
+import com.example.relaychat.core.model.ImageGenerationMetadata
 import com.example.relaychat.core.model.ProviderPreset
 import com.example.relaychat.core.model.RequestControls
 import com.example.relaychat.core.model.RuntimeChatConfiguration
@@ -98,6 +100,72 @@ class ChatExecutionCoordinatorTest {
         assertThat(coordinator.activeReply.value).isNull()
         assertThat(coordinator.lastFailure.value?.threadId).isEqualTo("thread-2")
         assertThat(coordinator.lastFailure.value?.message).contains("network down")
+    }
+
+    @Test
+    fun startRoutesImageProviderThroughNonStreamingImageRequest() = runTest {
+        val persisted = mutableListOf<Pair<String, ChatSendResult>>()
+        var streamCalls = 0
+        var sendCalls = 0
+        var imageCalls = 0
+        val metadata = ImageGenerationMetadata(
+            prompt = "Draw a quiet desk setup",
+            model = "gpt-image-2",
+            size = "1024x1024",
+            quality = "auto",
+            imagePath = "generated-images/image-1.png",
+            createdAt = 1760000000000L,
+        )
+        val thread = ChatThread(
+            id = "thread-image",
+            messages = listOf(ChatMessage(role = ChatRole.USER, text = metadata.prompt)),
+        )
+        val coordinator = ChatExecutionCoordinator(
+            scope = backgroundScope,
+            loadRuntimeSnapshot = {
+                RuntimeChatConfiguration(
+                    settings = AppSettings(provider = ProviderPreset.OPENAI_IMAGE.profile),
+                    apiKey = "test-key",
+                )
+            },
+            loadThread = { threadId -> thread.takeIf { it.id == threadId } },
+            saveAssistantResult = { threadId, result -> persisted += threadId to result },
+            streamRequest = { _, _, _ ->
+                streamCalls += 1
+                flow { }
+            },
+            sendRequest = { _, _, _ ->
+                sendCalls += 1
+                error("chat request should not run for image provider")
+            },
+            generateImageRequest = { _, _, _ ->
+                imageCalls += 1
+                ChatSendResult(
+                    assistantText = "Image generated.",
+                    responseId = null,
+                    requestId = "req_img",
+                    model = "gpt-image-2",
+                    attachments = listOf(
+                        ChatAttachment(
+                            mimeType = "image/png",
+                            data = byteArrayOf(1, 2, 3),
+                            filePath = metadata.imagePath,
+                        )
+                    ),
+                    imageGeneration = metadata,
+                )
+            },
+        )
+
+        coordinator.start("thread-image", RequestControls.Standard)
+        coordinator.awaitIdle()
+
+        assertThat(streamCalls).isEqualTo(0)
+        assertThat(sendCalls).isEqualTo(0)
+        assertThat(imageCalls).isEqualTo(1)
+        assertThat(persisted).hasSize(1)
+        assertThat(persisted.single().second.attachments.single().filePath).isEqualTo(metadata.imagePath)
+        assertThat(persisted.single().second.imageGeneration).isEqualTo(metadata)
     }
 
     @Test

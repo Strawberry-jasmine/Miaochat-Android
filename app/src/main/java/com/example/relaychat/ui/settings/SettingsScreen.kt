@@ -34,7 +34,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -50,16 +49,16 @@ import com.example.relaychat.app.RelayChatUiState
 import com.example.relaychat.app.RelayChatViewModel
 import com.example.relaychat.core.model.AppLocale
 import com.example.relaychat.core.model.AppThemeMode
+import com.example.relaychat.core.model.ProviderApiStyle
 import com.example.relaychat.core.model.ProviderPreset
-import com.example.relaychat.core.model.RequestTuningPreset
 import com.example.relaychat.core.model.ResponseFormatMode
 import com.example.relaychat.core.model.ToolChoiceMode
+import com.example.relaychat.core.model.capabilitiesForSelectedModel
 import com.example.relaychat.ui.components.RelayGlassCard
 import com.example.relaychat.ui.components.RelayInfoPill
 import com.example.relaychat.ui.components.RelaySectionEyebrow
 import com.example.relaychat.ui.components.relayOutlinedTextFieldColors
 import com.example.relaychat.ui.strings.detailFor
-import com.example.relaychat.ui.strings.detailRes
 import com.example.relaychat.ui.strings.labelRes
 import com.example.relaychat.ui.strings.stringFor
 import com.example.relaychat.ui.strings.titleRes
@@ -72,6 +71,11 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var importDialogVisible by rememberSaveable { mutableStateOf(false) }
+    val intelallocPresetStatus = stringResource(
+        R.string.status_provider_preset_applied_with_key,
+        stringResource(ProviderPreset.INTELALLOC_CODEX.titleRes()),
+    )
+    var selectedCategory by rememberSaveable { mutableStateOf(SettingsCategory.MODEL) }
 
     Column(
         modifier = modifier
@@ -81,35 +85,43 @@ fun SettingsScreen(
     ) {
         SettingsOverview(uiState = uiState)
 
-        SectionCard(
-            title = stringResource(R.string.settings_appearance_title),
-            accent = MaterialTheme.colorScheme.primary,
-        ) {
-            LanguageSelector(
-                currentLocale = uiState.settings.appLocale,
-                onSelected = viewModel::updateAppLocale,
-            )
-            Text(
-                text = stringResource(R.string.settings_language_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            ThemeModeSelector(
-                currentMode = uiState.settings.themeMode,
-                onSelected = { mode ->
-                    viewModel.updateSettings { settings ->
-                        settings.copy(themeMode = mode)
-                    }
-                },
-            )
-            Text(
-                text = stringResource(R.string.settings_theme_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        SettingsCategorySelector(
+            selectedCategory = selectedCategory,
+            onSelected = { selectedCategory = it },
+        )
+
+        if (selectedCategory == SettingsCategory.APPEARANCE) {
+            SectionCard(
+                title = stringResource(R.string.settings_appearance_title),
+                accent = MaterialTheme.colorScheme.primary,
+            ) {
+                LanguageSelector(
+                    currentLocale = uiState.settings.appLocale,
+                    onSelected = viewModel::updateAppLocale,
+                )
+                Text(
+                    text = stringResource(R.string.settings_language_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ThemeModeSelector(
+                    currentMode = uiState.settings.themeMode,
+                    onSelected = { mode ->
+                        viewModel.updateSettings { settings ->
+                            settings.copy(themeMode = mode)
+                        }
+                    },
+                )
+                Text(
+                    text = stringResource(R.string.settings_theme_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
-        SectionCard(title = stringResource(R.string.settings_quick_setup_title)) {
+        if (selectedCategory == SettingsCategory.MODEL) {
+            SectionCard(title = stringResource(R.string.settings_quick_setup_title)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = { importDialogVisible = true },
@@ -119,10 +131,7 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.applyProviderPreset(
                             ProviderPreset.INTELALLOC_CODEX,
-                            status = context.getString(
-                                R.string.status_provider_preset_applied_with_key,
-                                context.stringFor(ProviderPreset.INTELALLOC_CODEX),
-                            ),
+                            status = intelallocPresetStatus,
                         )
                     },
                     label = { Text(stringResource(R.string.settings_use_intelalloc_preset)) },
@@ -134,6 +143,12 @@ fun SettingsScreen(
                 },
                 label = { Text(stringResource(R.string.settings_use_openai_responses_preset)) },
             )
+            AssistChip(
+                onClick = {
+                    viewModel.applyProviderPreset(ProviderPreset.OPENAI_IMAGE)
+                },
+                label = { Text(stringResource(R.string.settings_use_openai_image_preset)) },
+            )
             KeyValueRow(label = stringResource(R.string.settings_endpoint_short_label), value = uiState.resolvedEndpoint)
             uiState.importStatus?.let {
                 Text(
@@ -142,43 +157,37 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
+            }
 
-        uiState.importSummary?.let {
-            ImportSummarySection(summary = it)
-        }
+            uiState.importSummary?.let {
+                ImportSummarySection(summary = it)
+            }
 
-        SectionCard(title = stringResource(R.string.settings_preset_title)) {
-            EnumSelector(
-                title = stringResource(R.string.settings_provider_preset_label),
-                currentLabel = context.stringFor(ProviderPreset.fromId(uiState.settings.provider.presetId)),
-                options = ProviderPreset.entries,
-                labelFor = { preset -> context.stringFor(preset) },
-                onSelected = { preset ->
-                    viewModel.applyProviderPreset(preset)
-                },
-            )
-            Text(
-                text = context.detailFor(ProviderPreset.fromId(uiState.settings.provider.presetId)),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        SectionCard(title = stringResource(R.string.settings_quality_presets_title)) {
-            RequestTuningPreset.entries.forEach { preset ->
-                TextButton(onClick = { viewModel.applyDefaultTuningPreset(preset) }) {
-                    Text(stringResource(preset.titleRes()))
-                }
+            SectionCard(title = stringResource(R.string.settings_preset_title)) {
+                EnumSelector(
+                    title = stringResource(R.string.settings_provider_preset_label),
+                    currentLabel = context.stringFor(ProviderPreset.fromId(uiState.settings.provider.presetId)),
+                    options = ProviderPreset.entries,
+                    labelFor = { preset -> context.stringFor(preset) },
+                    onSelected = { preset ->
+                        viewModel.applyProviderPreset(preset)
+                    },
+                )
                 Text(
-                    text = stringResource(preset.detailRes()),
+                    text = context.detailFor(ProviderPreset.fromId(uiState.settings.provider.presetId)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+
+            ModelCapabilitySection(
+                uiState = uiState,
+                viewModel = viewModel,
+            )
         }
 
-        SectionCard(title = stringResource(R.string.settings_endpoint_title)) {
+        if (selectedCategory == SettingsCategory.CONNECTION) {
+            SectionCard(title = stringResource(R.string.settings_connection_title)) {
             EnumSelector(
                 title = stringResource(R.string.settings_api_style_label),
                 currentLabel = context.stringFor(uiState.settings.provider.apiStyle),
@@ -214,14 +223,43 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(20.dp),
                 colors = relayOutlinedTextFieldColors(),
             )
-            SimpleTextField(stringResource(R.string.settings_model_label), uiState.settings.provider.model) {
-                viewModel.updateSettings { settings ->
-                    settings.copy(provider = settings.provider.copy(model = it))
+            }
+        }
+
+        if (selectedCategory == SettingsCategory.IMAGE) {
+            SectionCard(title = stringResource(R.string.settings_image_generation_title)) {
+                if (uiState.settings.provider.apiStyle == ProviderApiStyle.IMAGE_GENERATIONS) {
+                    RelayInfoPill(
+                        text = stringResource(R.string.settings_image_generation_mode_active),
+                        icon = Icons.Outlined.AutoAwesome,
+                        highlight = MaterialTheme.colorScheme.secondary,
+                    )
+                } else {
+                    AssistChip(
+                        onClick = { viewModel.applyProviderPreset(ProviderPreset.OPENAI_IMAGE) },
+                        label = { Text(stringResource(R.string.settings_use_openai_image_preset)) },
+                    )
+                }
+                SimpleTextField(stringResource(R.string.settings_image_size_label), uiState.settings.imageGeneration.size) {
+                    viewModel.updateSettings { settings ->
+                        settings.copy(imageGeneration = settings.imageGeneration.copy(size = it))
+                    }
+                }
+                SimpleTextField(stringResource(R.string.settings_image_quality_label), uiState.settings.imageGeneration.quality) {
+                    viewModel.updateSettings { settings ->
+                        settings.copy(imageGeneration = settings.imageGeneration.copy(quality = it))
+                    }
+                }
+                SimpleTextField(stringResource(R.string.settings_image_background_label), uiState.settings.imageGeneration.background) {
+                    viewModel.updateSettings { settings ->
+                        settings.copy(imageGeneration = settings.imageGeneration.copy(background = it))
+                    }
                 }
             }
         }
 
-        SectionCard(title = stringResource(R.string.settings_instructions_title)) {
+        if (selectedCategory == SettingsCategory.MODEL) {
+            SectionCard(title = stringResource(R.string.settings_instructions_title)) {
             SimpleTextField(
                 label = stringResource(R.string.settings_instructions_label),
                 value = uiState.settings.provider.instructionsPrompt,
@@ -232,42 +270,9 @@ fun SettingsScreen(
                     settings.copy(provider = settings.provider.copy(instructionsPrompt = it))
                 }
             }
-        }
+            }
 
-        SectionCard(title = stringResource(R.string.settings_default_controls_title)) {
-            EnumSelector(
-                title = stringResource(R.string.settings_reasoning_label),
-                currentLabel = context.stringFor(uiState.settings.defaultControls.reasoningEffort),
-                options = com.example.relaychat.core.model.ReasoningEffort.entries,
-                labelFor = { context.stringFor(it) },
-                onSelected = { value ->
-                    viewModel.updateSettings { settings ->
-                        settings.copy(defaultControls = settings.defaultControls.copy(reasoningEffort = value))
-                    }
-                },
-            )
-            if (uiState.settings.provider.supportsVerbosity) {
-                EnumSelector(
-                    title = stringResource(R.string.settings_verbosity_label),
-                    currentLabel = context.stringFor(uiState.settings.defaultControls.verbosity),
-                    options = com.example.relaychat.core.model.VerbosityLevel.entries,
-                    labelFor = { context.stringFor(it) },
-                    onSelected = { value ->
-                        viewModel.updateSettings { settings ->
-                            settings.copy(defaultControls = settings.defaultControls.copy(verbosity = value))
-                        }
-                    },
-                )
-            }
-            SwitchRow(
-                label = stringResource(R.string.settings_web_search_by_default),
-                checked = uiState.settings.defaultControls.webSearchEnabled,
-                enabled = uiState.settings.provider.supportsWebSearch,
-            ) { checked ->
-                viewModel.updateSettings { settings ->
-                    settings.copy(defaultControls = settings.defaultControls.copy(webSearchEnabled = checked))
-                }
-            }
+            SectionCard(title = stringResource(R.string.settings_default_controls_title)) {
             SwitchRow(stringResource(R.string.settings_response_storage), uiState.settings.defaultControls.responseStorageEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(responseStorageEnabled = checked))
@@ -284,9 +289,11 @@ fun SettingsScreen(
                     }
                 },
             )
+            }
         }
 
-        SectionCard(title = stringResource(R.string.settings_sampling_title)) {
+        if (selectedCategory == SettingsCategory.ADVANCED) {
+            SectionCard(title = stringResource(R.string.settings_sampling_title)) {
             SwitchRow(stringResource(R.string.settings_enable_temperature), uiState.settings.defaultControls.temperatureEnabled) { checked ->
                 viewModel.updateSettings { settings ->
                     settings.copy(defaultControls = settings.defaultControls.copy(temperatureEnabled = checked))
@@ -361,9 +368,9 @@ fun SettingsScreen(
                     },
                 )
             }
-        }
+            }
 
-        SectionCard(title = stringResource(R.string.settings_structured_outputs_title)) {
+            SectionCard(title = stringResource(R.string.settings_structured_outputs_title)) {
             EnumSelector(
                 title = stringResource(R.string.settings_response_format_label),
                 currentLabel = context.stringFor(uiState.settings.defaultControls.responseFormat.mode),
@@ -423,9 +430,9 @@ fun SettingsScreen(
                     }
                 }
             }
-        }
+            }
 
-        SectionCard(title = stringResource(R.string.settings_capabilities_title)) {
+            SectionCard(title = stringResource(R.string.settings_capabilities_title)) {
             CapabilitySwitch(stringResource(R.string.settings_supports_image_input), uiState.settings.provider.supportsImageInput, viewModel) {
                 it.copy(supportsImageInput = it.supportsImageInput.not())
             }
@@ -441,9 +448,9 @@ fun SettingsScreen(
             CapabilitySwitch(stringResource(R.string.settings_supports_structured_outputs), uiState.settings.provider.supportsStructuredOutputs, viewModel) {
                 it.copy(supportsStructuredOutputs = it.supportsStructuredOutputs.not())
             }
-        }
+            }
 
-        SectionCard(title = stringResource(R.string.settings_compat_mapping_title)) {
+            SectionCard(title = stringResource(R.string.settings_compat_mapping_title)) {
             SimpleTextField(stringResource(R.string.settings_reasoning_path_label), uiState.settings.provider.reasoningMapping.path) { value ->
                 viewModel.updateSettings { settings ->
                     settings.copy(
@@ -489,9 +496,9 @@ fun SettingsScreen(
                     )
                 }
             }
-        }
+            }
 
-        SectionCard(title = stringResource(R.string.settings_advanced_title)) {
+            SectionCard(title = stringResource(R.string.settings_advanced_title)) {
             SimpleTextField(
                 label = stringResource(R.string.settings_extra_headers_label),
                 value = uiState.settings.provider.extraHeaders,
@@ -512,9 +519,9 @@ fun SettingsScreen(
                     settings.copy(provider = settings.provider.copy(extraBodyJson = value))
                 }
             }
-        }
+            }
 
-        SectionCard(title = stringResource(R.string.settings_notes_title)) {
+            SectionCard(title = stringResource(R.string.settings_notes_title)) {
             Text(
                 text = stringResource(R.string.settings_notes_body_one),
                 style = MaterialTheme.typography.bodySmall,
@@ -526,6 +533,7 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            }
         }
     }
 
@@ -551,11 +559,11 @@ private fun SettingsOverview(uiState: RelayChatUiState) {
         RelaySectionEyebrow(text = stringResource(R.string.settings_configuration_eyebrow))
         Text(
             text = uiState.settings.provider.displayName,
-            style = MaterialTheme.typography.displaySmall,
+            style = MaterialTheme.typography.headlineSmall,
         )
         Text(
             text = uiState.settings.provider.model,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FlowRow(
@@ -608,6 +616,127 @@ private fun SettingsOverview(uiState: RelayChatUiState) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+private enum class SettingsCategory(
+    val titleRes: Int,
+) {
+    MODEL(R.string.settings_category_model),
+    CONNECTION(R.string.settings_category_connection),
+    IMAGE(R.string.settings_category_image),
+    APPEARANCE(R.string.settings_category_appearance),
+    ADVANCED(R.string.settings_category_advanced),
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SettingsCategorySelector(
+    selectedCategory: SettingsCategory,
+    onSelected: (SettingsCategory) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SettingsCategory.entries.forEach { category ->
+            FilterChip(
+                selected = selectedCategory == category,
+                onClick = { onSelected(category) },
+                label = { Text(stringResource(category.titleRes)) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                    labelColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModelCapabilitySection(
+    uiState: RelayChatUiState,
+    viewModel: RelayChatViewModel,
+) {
+    val context = LocalContext.current
+    val provider = uiState.settings.provider
+    val capabilities = provider.capabilitiesForSelectedModel()
+
+    SectionCard(
+        title = stringResource(R.string.settings_model_capabilities_title),
+        accent = MaterialTheme.colorScheme.primary,
+    ) {
+        SimpleTextField(
+            label = stringResource(R.string.settings_model_label),
+            value = provider.model,
+        ) { value ->
+            viewModel.selectProviderModel(value)
+        }
+
+        KeyValueRow(
+            label = stringResource(R.string.settings_model_api_label),
+            value = context.stringFor(provider.apiStyle),
+        )
+
+        if (capabilities.supportsImageGeneration) {
+            RelayInfoPill(
+                text = stringResource(R.string.settings_image_generation_mode_active),
+                icon = Icons.Outlined.AutoAwesome,
+                highlight = MaterialTheme.colorScheme.secondary,
+            )
+        } else {
+            EnumSelector(
+                title = stringResource(R.string.settings_reasoning_label),
+                currentLabel = context.stringFor(uiState.settings.defaultControls.reasoningEffort),
+                options = capabilities.reasoningEfforts,
+                labelFor = { context.stringFor(it) },
+                onSelected = { value ->
+                    viewModel.updateSettings { settings ->
+                        settings.copy(defaultControls = settings.defaultControls.copy(reasoningEffort = value))
+                    }
+                },
+            )
+
+            if (capabilities.verbosityLevels.isNotEmpty()) {
+                EnumSelector(
+                    title = stringResource(R.string.settings_verbosity_label),
+                    currentLabel = context.stringFor(uiState.settings.defaultControls.verbosity),
+                    options = capabilities.verbosityLevels,
+                    labelFor = { context.stringFor(it) },
+                    onSelected = { value ->
+                        viewModel.updateSettings { settings ->
+                            settings.copy(defaultControls = settings.defaultControls.copy(verbosity = value))
+                        }
+                    },
+                )
+            } else {
+                CapabilityUnavailableText(text = stringResource(R.string.settings_verbosity_unavailable))
+            }
+
+            SwitchRow(
+                label = stringResource(R.string.settings_web_search_by_default),
+                checked = uiState.settings.defaultControls.webSearchEnabled,
+                enabled = capabilities.supportsWebSearch,
+            ) { checked ->
+                viewModel.updateSettings { settings ->
+                    settings.copy(defaultControls = settings.defaultControls.copy(webSearchEnabled = checked))
+                }
+            }
+            if (!capabilities.supportsWebSearch) {
+                CapabilityUnavailableText(text = stringResource(R.string.settings_web_search_unavailable))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CapabilityUnavailableText(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable
@@ -852,7 +981,7 @@ private fun ImportConfigDialog(
             approval_policy = "never"
             sandbox_mode = "danger-full-access"
             model_provider = "intelalloc"
-            model = "gpt-5.4"
+            model = "gpt-5.5"
             model_reasoning_effort = "xhigh"
             model_reasoning_summary = "detailed"
             network_access = "enabled"

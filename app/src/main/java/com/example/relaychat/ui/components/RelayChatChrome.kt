@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,51 +64,7 @@ fun RelayChatBackdrop(modifier: Modifier = Modifier) {
                 )
             )
     ) {
-        BackgroundOrb(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 12.dp, top = 30.dp),
-            size = 240.dp,
-            colors = listOf(
-                colors.primary.copy(alpha = if (darkTheme) 0.24f else 0.18f),
-                Color.Transparent,
-            ),
-        )
-        BackgroundOrb(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(end = 8.dp, top = 86.dp),
-            size = 250.dp,
-            colors = listOf(
-                colors.secondary.copy(alpha = if (darkTheme) 0.21f else 0.15f),
-                Color.Transparent,
-            ),
-        )
-        BackgroundOrb(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 54.dp),
-            size = 320.dp,
-            colors = listOf(
-                colors.tertiary.copy(alpha = if (darkTheme) 0.16f else 0.11f),
-                Color.Transparent,
-            ),
-        )
     }
-}
-
-@Composable
-private fun BoxScope.BackgroundOrb(
-    modifier: Modifier,
-    size: androidx.compose.ui.unit.Dp,
-    colors: List<Color>,
-) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(Brush.radialGradient(colors = colors))
-    )
 }
 
 @Composable
@@ -121,7 +76,7 @@ fun RelayGlassCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val darkTheme = colors.isDarkTheme()
-    val cardShape = RoundedCornerShape(28.dp)
+    val cardShape = RoundedCornerShape(8.dp)
     val borderColor = if (darkTheme) {
         colors.outline.copy(alpha = 0.48f)
     } else {
@@ -148,10 +103,10 @@ fun RelayGlassCard(
 
     Surface(
         modifier = modifier.shadow(
-            elevation = if (darkTheme) 22.dp else 28.dp,
+            elevation = if (darkTheme) 8.dp else 10.dp,
             shape = cardShape,
-            ambientColor = accent.copy(alpha = if (darkTheme) 0.16f else 0.10f),
-            spotColor = accent.copy(alpha = if (darkTheme) 0.16f else 0.10f),
+            ambientColor = accent.copy(alpha = if (darkTheme) 0.10f else 0.06f),
+            spotColor = accent.copy(alpha = if (darkTheme) 0.10f else 0.06f),
         ),
         shape = cardShape,
         color = cardColor,

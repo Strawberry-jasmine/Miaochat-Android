@@ -194,6 +194,9 @@ object CodexConfigImporter {
 
             ProviderApiStyle.CHAT_COMPLETIONS ->
                 if (baseUrl.lowercase().contains("/v1")) "/chat/completions" else "/v1/chat/completions"
+
+            ProviderApiStyle.IMAGE_GENERATIONS ->
+                if (baseUrl.lowercase().contains("/v1")) "/images/generations" else "/v1/images/generations"
         }
     }
 
@@ -214,6 +217,11 @@ object CodexConfigImporter {
             ProviderApiStyle.CHAT_COMPLETIONS -> listOf(
                 listOf("v1", "chat", "completions"),
                 listOf("chat", "completions"),
+            )
+
+            ProviderApiStyle.IMAGE_GENERATIONS -> listOf(
+                listOf("v1", "images", "generations"),
+                listOf("images", "generations"),
             )
         }
 

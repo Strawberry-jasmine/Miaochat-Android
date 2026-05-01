@@ -38,6 +38,7 @@ data class MessageEntity(
     val remoteResponseId: String?,
     val requestId: String?,
     val model: String?,
+    val imageGenerationJson: String?,
 )
 
 @Entity(
@@ -58,6 +59,7 @@ data class AttachmentEntity(
     val position: Int,
     val mimeType: String,
     val data: ByteArray,
+    val filePath: String?,
 )
 
 data class MessageWithAttachments(

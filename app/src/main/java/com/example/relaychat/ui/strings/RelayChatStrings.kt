@@ -12,7 +12,6 @@ import com.example.relaychat.core.model.AppThemeMode
 import com.example.relaychat.core.model.ProviderApiStyle
 import com.example.relaychat.core.model.ProviderPreset
 import com.example.relaychat.core.model.ReasoningEffort
-import com.example.relaychat.core.model.RequestTuningPreset
 import com.example.relaychat.core.model.ResponseFormatMode
 import com.example.relaychat.core.model.ToolChoiceMode
 import com.example.relaychat.core.model.VerbosityLevel
@@ -37,6 +36,7 @@ fun AppThemeMode.labelRes(): Int = when (this) {
 fun ProviderApiStyle.labelRes(): Int = when (this) {
     ProviderApiStyle.RESPONSES -> R.string.provider_api_style_responses
     ProviderApiStyle.CHAT_COMPLETIONS -> R.string.provider_api_style_chat_completions
+    ProviderApiStyle.IMAGE_GENERATIONS -> R.string.provider_api_style_image_generations
 }
 
 @StringRes
@@ -75,6 +75,7 @@ fun ProviderPreset.titleRes(): Int = when (this) {
     ProviderPreset.INTELALLOC_CODEX -> R.string.provider_preset_intelalloc_title
     ProviderPreset.OPENAI_RESPONSES -> R.string.provider_preset_openai_responses_title
     ProviderPreset.OPENAI_CHAT_COMPLETIONS -> R.string.provider_preset_openai_chat_title
+    ProviderPreset.OPENAI_IMAGE -> R.string.provider_preset_openai_image_title
     ProviderPreset.OPENROUTER_COMPATIBLE -> R.string.provider_preset_openrouter_title
     ProviderPreset.LM_STUDIO_COMPATIBLE -> R.string.provider_preset_lm_studio_title
     ProviderPreset.CUSTOM -> R.string.provider_preset_custom_title
@@ -85,23 +86,10 @@ fun ProviderPreset.detailRes(): Int = when (this) {
     ProviderPreset.INTELALLOC_CODEX -> R.string.provider_preset_intelalloc_detail
     ProviderPreset.OPENAI_RESPONSES -> R.string.provider_preset_openai_responses_detail
     ProviderPreset.OPENAI_CHAT_COMPLETIONS -> R.string.provider_preset_openai_chat_detail
+    ProviderPreset.OPENAI_IMAGE -> R.string.provider_preset_openai_image_detail
     ProviderPreset.OPENROUTER_COMPATIBLE -> R.string.provider_preset_openrouter_detail
     ProviderPreset.LM_STUDIO_COMPATIBLE -> R.string.provider_preset_lm_studio_detail
     ProviderPreset.CUSTOM -> R.string.provider_preset_custom_detail
-}
-
-@StringRes
-fun RequestTuningPreset.titleRes(): Int = when (this) {
-    RequestTuningPreset.PRECISE -> R.string.tuning_preset_precise_title
-    RequestTuningPreset.BALANCED -> R.string.tuning_preset_balanced_title
-    RequestTuningPreset.DEEP -> R.string.tuning_preset_deep_title
-}
-
-@StringRes
-fun RequestTuningPreset.detailRes(): Int = when (this) {
-    RequestTuningPreset.PRECISE -> R.string.tuning_preset_precise_detail
-    RequestTuningPreset.BALANCED -> R.string.tuning_preset_balanced_detail
-    RequestTuningPreset.DEEP -> R.string.tuning_preset_deep_detail
 }
 
 fun Context.stringFor(value: AppLocale): String = getString(value.labelRes())
@@ -121,10 +109,6 @@ fun Context.stringFor(value: ResponseFormatMode): String = getString(value.label
 fun Context.stringFor(value: ProviderPreset): String = getString(value.titleRes())
 
 fun Context.detailFor(value: ProviderPreset): String = getString(value.detailRes())
-
-fun Context.stringFor(value: RequestTuningPreset): String = getString(value.titleRes())
-
-fun Context.detailFor(value: RequestTuningPreset): String = getString(value.detailRes())
 
 @Composable
 internal fun localizedThreadTitle(title: String): String {
